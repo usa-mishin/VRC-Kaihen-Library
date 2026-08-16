@@ -6,6 +6,7 @@ AppPackages/
 BundleArtifacts/
 Generated Files/
 TestResults/
+artifacts/
 
 # Per-user IDE settings
 *.user

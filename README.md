@@ -25,6 +25,31 @@ BOOTH Library Manager（BLM）がダウンロードしたVRChat向け商品を�
 dotnet build VrcKaihenManager.slnx -c Debug -p:Platform=x64
 ```
 
+## Windowsへのインストール（MSIX）
+
+一般配布では、コード署名済みの`.msix`をWindows標準のApp Installerで開いてインストールします。アンインストールはWindowsの「設定 > アプリ > インストールされているアプリ」から行います。
+
+開発環境でテスト用MSIXを作成する場合は、PowerShellで次を実行します。
+
+```powershell
+$thumbprint = .\scripts\New-DevelopmentCertificate.ps1
+.\scripts\Build-Msix.ps1 -Version 1.0.0.0 -Platform x64 -CertificateThumbprint $thumbprint
+```
+
+自己署名した開発版をインストールするPCでは、管理者として起動したPowerShellから証明書を一度だけ信頼します。
+
+```powershell
+.\scripts\Trust-DevelopmentCertificate.ps1 -CertificateThumbprint <上で表示されたThumbprint>
+```
+
+その後、`artifacts\msix`配下の`.msix`をダブルクリックするか、次を実行します。
+
+```powershell
+.\scripts\Install-Msix.ps1 -PackagePath <生成されたMSIXのパス>
+```
+
+`New-AppInstaller.ps1`は、配布URL確定後に自動更新用の`.appinstaller`を生成するためのスクリプトです。正式配布では自己署名証明書を使用せず、信頼されたコード署名サービスまたは証明書で署名してください。
+
 対象は .NET 8 / WinUI 3 / Windows 10 19041以降です。
 
 ## 開発ドキュメント

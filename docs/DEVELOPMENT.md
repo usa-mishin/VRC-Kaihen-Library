@@ -457,3 +457,11 @@ BLM実データのスキーマでは`booth_item_variations`に`variation_name`�
 - The GitHub repository was empty when connected, so there is no existing remote history to merge.
 - Added a root `.gitignore` for Visual Studio/.NET outputs, user-specific IDE files, local diagnostics, Codex investigation directories, and the temporary `SchemaInspector` utility.
 - Use the Visual Studio-bundled Git executable until a standalone Git installation is added to `PATH`.
+### 2026-08-16 MSIX installation groundwork
+
+- Selected MSIX as the Windows installation format. Uninstallation remains the standard Windows Settings operation; no custom uninstaller UI will be built.
+- Stabilized the package identity as `usa-mishin.VrcKaihenManager`, publisher as `CN=usa-mishin`, and user-facing package name as `改変ライブラリ`.
+- Removed the unused `systemAIModels` restricted capability from the package manifest.
+- Added scripts for creating a development signing certificate, trusting it on a test PC, building a signed MSIX, installing it, and generating an `.appinstaller` after public HTTPS URLs are known.
+- Verified that a signed x64 MSIX can be produced and installed successfully at version `1.0.0.0`; Windows reports package status `Ok`. Final public distribution still requires a CA-trusted production signature.
+- A self-signed MSIX certificate must be placed in the local machine `TrustedPeople` store for installation testing, which requires an elevated PowerShell session. Current-user trust alone is insufficient for AppX deployment.
