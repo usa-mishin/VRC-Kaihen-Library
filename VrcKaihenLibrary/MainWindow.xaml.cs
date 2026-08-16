@@ -13,10 +13,10 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using VrcKaihenManager.Models;
-using VrcKaihenManager.Services;
+using VrcKaihenLibrary.Models;
+using VrcKaihenLibrary.Services;
 
-namespace VrcKaihenManager;
+namespace VrcKaihenLibrary;
 
 public sealed record DetailTagChip(string Text, string? AvatarRegistrationId, bool IsClickable, string Prefix = "")
 {

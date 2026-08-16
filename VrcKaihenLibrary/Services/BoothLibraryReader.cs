@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using VrcKaihenManager.Models;
+using VrcKaihenLibrary.Models;
 
-namespace VrcKaihenManager.Services;
+namespace VrcKaihenLibrary.Services;
 
 public sealed record BoothLibrarySnapshot(string DatabasePath, string ItemDirectory, int SchemaVersion, IReadOnlyList<LibraryItem> Items);
 

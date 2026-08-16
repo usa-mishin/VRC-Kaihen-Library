@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml;
 using System.Text.RegularExpressions;
 
-namespace VrcKaihenManager.Models;
+namespace VrcKaihenLibrary.Models;
 
 public sealed class LibraryItem : INotifyPropertyChanged
 {

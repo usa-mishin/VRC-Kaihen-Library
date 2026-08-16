@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace VrcKaihenManager.Services;
+namespace VrcKaihenLibrary.Services;
 
 public sealed record DuplicateDownload(string KeepPath, string DeletePath, string TargetPath);
 

@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.UI.Text;
 
-namespace VrcKaihenManager.Controls;
+namespace VrcKaihenLibrary.Controls;
 
 public sealed class LinkChipBorder : HandCursorButton
 {

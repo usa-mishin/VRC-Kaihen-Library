@@ -10,7 +10,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$projectPath = Join-Path $repositoryRoot 'VrcKaihenManager\VrcKaihenManager.csproj'
+$projectPath = Join-Path $repositoryRoot 'VrcKaihenLibrary\VrcKaihenLibrary.csproj'
 $outputRoot = Join-Path $repositoryRoot 'artifacts\msix'
 $vsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 

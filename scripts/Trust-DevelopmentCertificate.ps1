@@ -22,7 +22,7 @@ $trusted = Get-ChildItem -Path Cert:\LocalMachine\TrustedPeople |
     Where-Object Thumbprint -eq $certificate.Thumbprint
 
 if (-not $trusted) {
-    $temporaryCertificate = Join-Path ([System.IO.Path]::GetTempPath()) "VrcKaihenManager-$($certificate.Thumbprint).cer"
+    $temporaryCertificate = Join-Path ([System.IO.Path]::GetTempPath()) "VrcKaihenLibrary-$($certificate.Thumbprint).cer"
     try {
         Export-Certificate -Cert $certificate -FilePath $temporaryCertificate -Force | Out-Null
         Import-Certificate -FilePath $temporaryCertificate -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null

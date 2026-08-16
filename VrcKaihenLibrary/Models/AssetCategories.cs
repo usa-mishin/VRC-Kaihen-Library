@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace VrcKaihenManager.Models;
+namespace VrcKaihenLibrary.Models;
 
 public static class AssetCategories
 {

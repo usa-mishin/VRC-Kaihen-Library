@@ -16,7 +16,7 @@ $certificate = if ($existing) {
     New-SelfSignedCertificate `
         -Type Custom `
         -Subject $Publisher `
-        -FriendlyName 'VrcKaihenManager development signing' `
+        -FriendlyName 'VrcKaihenLibrary development signing' `
         -CertStoreLocation 'Cert:\CurrentUser\My' `
         -KeyAlgorithm RSA `
         -KeyLength 3072 `

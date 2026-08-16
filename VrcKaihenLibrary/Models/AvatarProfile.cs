@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace VrcKaihenManager.Models;
+namespace VrcKaihenLibrary.Models;
 
 public sealed record AvatarProfile(
     string RegistrationId,

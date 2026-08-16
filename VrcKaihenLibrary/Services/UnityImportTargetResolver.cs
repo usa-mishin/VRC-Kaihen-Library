@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
-using VrcKaihenManager.Models;
+using VrcKaihenLibrary.Models;
 
-namespace VrcKaihenManager.Services;
+namespace VrcKaihenLibrary.Services;
 
 public static class UnityImportTargetResolver
 {

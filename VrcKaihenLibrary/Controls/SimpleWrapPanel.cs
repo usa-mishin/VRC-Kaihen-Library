@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using Windows.Foundation;
 
-namespace VrcKaihenManager.Controls;
+namespace VrcKaihenLibrary.Controls;
 
 public sealed class SimpleWrapPanel : Panel
 {

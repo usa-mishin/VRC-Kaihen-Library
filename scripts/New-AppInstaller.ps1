@@ -16,7 +16,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path $repositoryRoot 'artifacts\msix\VrcKaihenManager.appinstaller'
+    $OutputPath = Join-Path $repositoryRoot 'artifacts\msix\VrcKaihenLibrary.appinstaller'
 }
 
 $outputDirectory = Split-Path -Parent $OutputPath
@@ -29,7 +29,7 @@ $document = @"
   Version="$Version"
   xmlns="http://schemas.microsoft.com/appx/appinstaller/2018">
   <MainPackage
-    Name="usa-mishin.VrcKaihenManager"
+    Name="usa-mishin.VrcKaihenLibrary"
     Publisher="CN=usa-mishin"
     Version="$Version"
     ProcessorArchitecture="$Architecture"

@@ -1,9 +1,9 @@
 {
   "profiles": {
-    "VrcKaihenManager (Package)": {
+    "VrcKaihenLibrary (Package)": {
       "commandName": "MsixPackage"
     },
-    "VrcKaihenManager (Unpackaged)": {
+    "VrcKaihenLibrary (Unpackaged)": {
       "commandName": "Project"
     }
   }

@@ -465,3 +465,14 @@ BLM実データのスキーマでは`booth_item_variations`に`variation_name`�
 - Added scripts for creating a development signing certificate, trusting it on a test PC, building a signed MSIX, installing it, and generating an `.appinstaller` after public HTTPS URLs are known.
 - Verified that a signed x64 MSIX can be produced and installed successfully at version `1.0.0.0`; Windows reports package status `Ok`. Final public distribution still requires a CA-trusted production signature.
 - A self-signed MSIX certificate must be placed in the local machine `TrustedPeople` store for installation testing, which requires an elevated PowerShell session. Current-user trust alone is insufficient for AppX deployment.
+### 2026-08-16 Product and project rename
+
+- Changed the user-facing application name from `改変ライブラリ` to `VRC改変ライブラリ`.
+- Renamed the solution, project, assembly, root namespace, executable, scripts, and MSIX identity from `VrcKaihenManager` to `VrcKaihenLibrary`.
+- The new MSIX identity is `usa-mishin.VrcKaihenLibrary`. Because Windows treats a changed package identity as a separate app, old development packages may coexist until the old test package is uninstalled.
+- Added a first-run SQLite backup migration from `%LOCALAPPDATA%\VrcKaihenManager\library.db` to `%LOCALAPPDATA%\VrcKaihenLibrary\library.db`. The legacy database is retained as a recoverable copy.
+- Renamed the Unity UPM bridge to `com.vrckaihenlibrary.import-bridge`; the next Unity import removes the former `com.vrckaihenmanager.import-bridge` package and legacy Assets bridge.
+- Renamed the Unity import request folder, temporary preparation folder, and shared package cache. An existing `.VrcKaihenManagerImportCache` is moved to `.VrcKaihenLibraryImportCache` when possible.
+- Verified Debug x64 compilation and installation of the signed `usa-mishin.VrcKaihenLibrary` MSIX version `1.0.0.0`; Windows reported package status `Ok`.
+- Disabled trimming for Release/MSIX builds after an installed package crashed during WinUI XAML activation. The generated XAML type provider emitted trim warnings and is not safe to trim; unpackaged Debug builds were unaffected.
+- GitHub repository rename to `VrcKaihenLibrary` remains pending because no authenticated browser or GitHub API client was available in this session. After the GitHub rename, update `origin` and the outer clone directory.

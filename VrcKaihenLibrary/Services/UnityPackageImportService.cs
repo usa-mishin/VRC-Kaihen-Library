@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using VrcKaihenManager.Models;
+using VrcKaihenLibrary.Models;
 
-namespace VrcKaihenManager.Services;
+namespace VrcKaihenLibrary.Services;
 
 public sealed record ImportPreparationProgress(int Percentage, string Message);
 
@@ -30,7 +30,14 @@ public sealed class UnityPackageImportService
         var sourceInfo = new FileInfo(sourcePackagePath);
         var libraryRoot = Path.GetDirectoryName(item.FolderPath)
             ?? throw new DirectoryNotFoundException("BLMライブラリの保存先を特定できません。");
-        var sharedCacheRoot = Path.Combine(libraryRoot, ".VrcKaihenManagerImportCache");
+        var sharedCacheRoot = Path.Combine(libraryRoot, ".VrcKaihenLibraryImportCache");
+        var legacyCacheRoot = Path.Combine(libraryRoot, ".VrcKaihenManagerImportCache");
+        if (!Directory.Exists(sharedCacheRoot) && Directory.Exists(legacyCacheRoot))
+        {
+            try { Directory.Move(legacyCacheRoot, sharedCacheRoot); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
         var cacheRoot = Path.Combine(sharedCacheRoot, item.RegistrationId);
         Directory.CreateDirectory(cacheRoot);
         try { File.SetAttributes(sharedCacheRoot, File.GetAttributes(sharedCacheRoot) | FileAttributes.Hidden); }
@@ -47,7 +54,7 @@ public sealed class UnityPackageImportService
             return destinationPath;
         }
 
-        var workingRoot = Path.Combine(Path.GetTempPath(), "VrcKaihenManager", "UnityPackagePreparation", Guid.NewGuid().ToString("N"));
+        var workingRoot = Path.Combine(Path.GetTempPath(), "VrcKaihenLibrary", "UnityPackagePreparation", Guid.NewGuid().ToString("N"));
         var stagingRoot = Path.Combine(workingRoot, "archive");
         var temporaryPath = Path.Combine(workingRoot, "prepared.unitypackage");
         var entryListPath = Path.Combine(workingRoot, "entries.txt");

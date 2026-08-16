@@ -2,7 +2,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 
-namespace VrcKaihenManager.Controls;
+namespace VrcKaihenLibrary.Controls;
 
 public class HandCursorButton : Button
 {

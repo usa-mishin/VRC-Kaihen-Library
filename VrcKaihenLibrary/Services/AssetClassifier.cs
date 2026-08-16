@@ -1,7 +1,7 @@
 using System;
-using VrcKaihenManager.Models;
+using VrcKaihenLibrary.Models;
 
-namespace VrcKaihenManager.Services;
+namespace VrcKaihenLibrary.Services;
 
 public static class AssetClassifier
 {

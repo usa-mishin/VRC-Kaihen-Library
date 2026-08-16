@@ -3,9 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using VrcKaihenManager.Models;
+using VrcKaihenLibrary.Models;
 
-namespace VrcKaihenManager.Services;
+namespace VrcKaihenLibrary.Services;
 
 public sealed record ItemMetadata(string Category, bool ImportToAssetsRoot, bool SupportsAllAvatars);
 public sealed record CategoryImportSetting(string Category, string FolderName, bool ImportToAssetsRoot);
@@ -16,9 +16,11 @@ public sealed class UserMetadataStore
 
     public UserMetadataStore()
     {
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VrcKaihenManager");
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var directory = Path.Combine(localAppData, "VrcKaihenLibrary");
         Directory.CreateDirectory(directory);
         _databasePath = Path.Combine(directory, "library.db");
+        MigrateLegacyDatabaseIfNeeded(Path.Combine(localAppData, "VrcKaihenManager", "library.db"));
         using var connection = Open();
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -75,6 +77,17 @@ public sealed class UserMetadataStore
         EnsureColumn(connection, "avatar_profiles", "identifiers_manual", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "item_metadata", "supports_all_avatars", "INTEGER NOT NULL DEFAULT 0");
         RemoveLegacyBoothUrlIdentifiers(connection);
+    }
+
+    private void MigrateLegacyDatabaseIfNeeded(string legacyDatabasePath)
+    {
+        if (File.Exists(_databasePath) || !File.Exists(legacyDatabasePath)) return;
+
+        using var source = new SqliteConnection($"Data Source={legacyDatabasePath};Mode=ReadOnly");
+        using var destination = new SqliteConnection($"Data Source={_databasePath}");
+        source.Open();
+        destination.Open();
+        source.BackupDatabase(destination);
     }
 
     public IReadOnlyDictionary<string, ItemMetadata> ReadAll()

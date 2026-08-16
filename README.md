@@ -1,4 +1,4 @@
-# 改変ライブラリ（VrcKaihenManager）
+# VRC改変ライブラリ（VrcKaihenLibrary）
 
 アバター編集ではメイン呼称、複数の識別タグ、登録済みアバターから複数選べる共通素体関係を設定できます。識別タグは大文字小文字と全角半角を無視して対応判定に使われ、詳細画面のタグをクリックするとBOOTH検索を開きます。
 
@@ -16,13 +16,14 @@ BOOTH Library Manager（BLM）がダウンロードしたVRChat向け商品を�
 ## データと安全性
 
 - BLM DB: `%APPDATA%\pm.booth.library-manager\data.db`
-- アプリ独自DB: `%LOCALAPPDATA%\VrcKaihenManager\library.db`
+- アプリ独自DB: `%LOCALAPPDATA%\VrcKaihenLibrary\library.db`
+- 旧`VrcKaihenManager`版のDBが存在する場合、初回起動時に新しい保存先へ安全にコピーして引き継ぎます。
 - BLM DBには書き込みません。分類などの編集結果は必ずアプリ独自DBへ保存します。
 
 ## ビルド
 
 ```powershell
-dotnet build VrcKaihenManager.slnx -c Debug -p:Platform=x64
+dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 ```
 
 ## Windowsへのインストール（MSIX）
