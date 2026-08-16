@@ -475,4 +475,5 @@ BLM実データのスキーマでは`booth_item_variations`に`variation_name`�
 - Renamed the Unity import request folder, temporary preparation folder, and shared package cache. An existing `.VrcKaihenManagerImportCache` is moved to `.VrcKaihenLibraryImportCache` when possible.
 - Verified Debug x64 compilation and installation of the signed `usa-mishin.VrcKaihenLibrary` MSIX version `1.0.0.0`; Windows reported package status `Ok`.
 - Disabled trimming for Release/MSIX builds after an installed package crashed during WinUI XAML activation. The generated XAML type provider emitted trim warnings and is not safe to trim; unpackaged Debug builds were unaffected.
-- GitHub repository rename to `VrcKaihenLibrary` remains pending because no authenticated browser or GitHub API client was available in this session. After the GitHub rename, update `origin` and the outer clone directory.
+- GitHub repository was renamed to `VrcKaihenLibrary`; `origin` now points to `https://github.com/usa-mishin/VrcKaihenLibrary.git`.
+- Moved the local repository contents to `C:\Users\hiron\source\repos\VrcKaihenLibrary` and reopened `VrcKaihenLibrary.slnx` in Visual Studio. The former outer directory is empty and can be removed after the active tooling session releases its working-directory handle.
