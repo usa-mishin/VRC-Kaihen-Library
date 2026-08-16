@@ -1,24 +1,22 @@
 # VRC改変ライブラリ（VrcKaihenLibrary）
 
-アバター編集ではメイン呼称、複数の識別タグ、登録済みアバターから複数選べる共通素体関係を設定できます。識別タグは大文字小文字と全角半角を無視して対応判定に使われ、詳細画面のタグをクリックするとBOOTH検索を開きます。
+BOOTH Library Manager（BLM）が管理する VRChat 向け商品を整理し、Unity プロジェクトへの導入を支援する Windows デスクトップアプリです。
 
-BOOTH Library Manager（BLM）がダウンロードしたVRChat向け商品を整理し、Unityプロジェクトへの導入を支援するWindowsデスクトップアプリです。
+## 主な機能
 
-## 現在の機能
+- BLM の SQLite データベースと商品保存先を読み取り専用で参照
+- サムネイル付きの商品一覧、検索、分類、並べ替え、ページング
+- 対応アバター、共通素体、取得種別（フルパック・単体購入・無料/ギフト）の管理
+- 商品ごとの分類と Unity の配置先設定をアプリ専用 DB に保存
+- ダウンロードファイルの確認と `.unitypackage` の Unity Editor へのインポート
+- 商品フォルダーと BOOTH 商品ページを詳細画面から表示
 
-- BLMのSQLiteデータベースと商品保存先を読み取り専用で参照
-- サムネイル付き商品一覧、検索、分類タブ
-- BOOTHカテゴリに基づく自動分類
-- 詳細画面で分類とAssets直下配置フラグを編集
-- 商品保存フォルダーとBOOTH商品ページを開く
-- ユーザー設定をアプリ専用SQLite DBへ保存
+## 必要環境
 
-## データと安全性
-
-- BLM DB: `%APPDATA%\pm.booth.library-manager\data.db`
-- アプリ独自DB: `%LOCALAPPDATA%\VrcKaihenLibrary\library.db`
-- 旧`VrcKaihenManager`版のDBが存在する場合、初回起動時に新しい保存先へ安全にコピーして引き継ぎます。
-- BLM DBには書き込みません。分類などの編集結果は必ずアプリ独自DBへ保存します。
+- Windows 10 19041 以降
+- .NET 8 SDK
+- Visual Studio 2022（WinUI 3 の開発時）
+- BOOTH Library Manager（実データを使った動作確認時）
 
 ## ビルド
 
@@ -26,33 +24,31 @@ BOOTH Library Manager（BLM）がダウンロードしたVRChat向け商品を�
 dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 ```
 
-## Windowsへのインストール（MSIX）
+起動プロジェクトは `VrcKaihenLibrary/VrcKaihenLibrary.csproj` です。
 
-一般配布では、コード署名済みの`.msix`をWindows標準のApp Installerで開いてインストールします。アンインストールはWindowsの「設定 > アプリ > インストールされているアプリ」から行います。
+## データの保存場所
 
-開発環境でテスト用MSIXを作成する場合は、PowerShellで次を実行します。
+- BLM DB: `%APPDATA%\pm.booth.library-manager\data.db`
+- 本アプリ DB: `%LOCALAPPDATA%\VrcKaihenLibrary\library.db`
+
+BLM DB には書き込みません。分類、対応アバター、配置設定などは本アプリ専用 DB に保存します。旧名 `VrcKaihenManager` の DB があり、新 DB がまだない場合は初回起動時にバックアップコピーして移行します。
+
+## MSIX の開発用ビルド
 
 ```powershell
 $thumbprint = .\scripts\New-DevelopmentCertificate.ps1
 .\scripts\Build-Msix.ps1 -Version 1.0.0.0 -Platform x64 -CertificateThumbprint $thumbprint
 ```
 
-自己署名した開発版をインストールするPCでは、管理者として起動したPowerShellから証明書を一度だけ信頼します。
+自己署名証明書を使うテスト PC では、管理者 PowerShell から証明書を一度信頼させます。
 
 ```powershell
-.\scripts\Trust-DevelopmentCertificate.ps1 -CertificateThumbprint <上で表示されたThumbprint>
+.\scripts\Trust-DevelopmentCertificate.ps1 -CertificateThumbprint <Thumbprint>
+.\scripts\Install-Msix.ps1 -PackagePath <生成したMSIXのパス>
 ```
 
-その後、`artifacts\msix`配下の`.msix`をダブルクリックするか、次を実行します。
+本番配布には信頼された証明書によるコード署名が必要です。
 
-```powershell
-.\scripts\Install-Msix.ps1 -PackagePath <生成されたMSIXのパス>
-```
+## 開発を再開する方へ
 
-`New-AppInstaller.ps1`は、配布URL確定後に自動更新用の`.appinstaller`を生成するためのスクリプトです。正式配布では自己署名証明書を使用せず、信頼されたコード署名サービスまたは証明書で署名してください。
-
-対象は .NET 8 / WinUI 3 / Windows 10 19041以降です。
-
-## 開発ドキュメント
-
-設計、分類規則、実装状況、今後の作業は [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を参照してください。仕様や設計を変更した場合は、コードと同じ変更でこのREADMEまたは開発ドキュメントも更新してください。
+最初に [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を読んでください。現在の構成、壊してはいけない前提、確認済みの制約、検証手順をまとめています。
