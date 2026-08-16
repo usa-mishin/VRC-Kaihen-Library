@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="VrcKaihenManager.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:VrcKaihenManager.Controls"
+    Title="改変ライブラリ">
+    <Window.SystemBackdrop><MicaBackdrop /></Window.SystemBackdrop>
+    <Grid x:Name="RootLayout">
+        <Grid.Resources>
+            <Style x:Key="CompactGridViewItemStyle" TargetType="GridViewItem">
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            </Style>
+            <Style x:Key="SideMenuButtonStyle" TargetType="Button">
+                <Setter Property="Width" Value="84"/><Setter Property="Height" Value="84"/>
+                <Setter Property="Padding" Value="2"/><Setter Property="CornerRadius" Value="0"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="CategoryTabButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="CornerRadius" Value="6,6,0,0"/>
+                <Setter Property="Padding" Value="14,8,14,7"/>
+                <Setter Property="MinHeight" Value="38"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" FontWeight="{TemplateBinding FontWeight}"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="DetailMenuItemStyle" TargetType="controls:HandCursorButton">
+                <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="14,11"/><Setter Property="CornerRadius" Value="0"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Left"/>
+            </Style>
+            <Style x:Key="DownloadFileButtonStyle" TargetType="controls:HandCursorButton">
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="controls:HandCursorButton">
+                            <Border x:Name="FileRowBackground" Background="{TemplateBinding Background}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <Storyboard>
+                                                <ColorAnimation Storyboard.TargetName="FileRowBackground" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#FFF1F2F4" Duration="0:0:0.12"/>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <ColorAnimation Storyboard.TargetName="FileRowBackground" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#FFE4E6E9" Duration="0:0:0.06"/>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled"/>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Storyboard x:Name="OpenDetailPanelStoryboard">
+                <DoubleAnimation Storyboard.TargetName="DetailPanelTransform" Storyboard.TargetProperty="TranslateX" From="440" To="0" Duration="0:0:0.24">
+                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+            <Storyboard x:Name="CloseDetailPanelStoryboard">
+                <DoubleAnimation Storyboard.TargetName="DetailPanelTransform" Storyboard.TargetProperty="TranslateX" From="0" To="440" Duration="0:0:0.2">
+                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+        </Grid.Resources>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+        <Border Grid.RowSpan="4" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+            <StackPanel Padding="0,18,0,0" Spacing="0">
+                <Button x:Name="LibraryMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="LibraryMenu_Click" Background="#FFD0575C" Foreground="White">
+                    <StackPanel Spacing="5"><FontIcon Glyph="&#xE8A9;" FontSize="23"/><TextBlock Text="一覧" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
+                </Button>
+                <Button x:Name="SettingsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="SettingsMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                    <StackPanel Spacing="5"><FontIcon Glyph="&#xE713;" FontSize="23"/><TextBlock Text="設定" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <Grid x:Name="LibraryHeader" Grid.Column="1" Padding="24,20,24,12" ColumnSpacing="10" RowSpacing="10">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="270"/><ColumnDefinition Width="180"/><ColumnDefinition Width="180"/><ColumnDefinition Width="160"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <TextBlock x:Name="LibraryTitle" Grid.ColumnSpan="6" Text="改変ライブラリ" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+            <TextBlock x:Name="StatusText" Visibility="Collapsed"/>
+            <AutoSuggestBox x:Name="SearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="商品名、ショップ名、タグを検索" TextChanged="SearchBox_TextChanged" QueryIcon="Find" VerticalAlignment="Center"/>
+            <Button x:Name="AvatarFilterButton" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Center">
+                <Grid><TextBlock x:Name="AvatarFilterButtonText" Text="すべての対応アバター" TextTrimming="CharacterEllipsis"/><FontIcon Glyph="&#xE70D;" HorizontalAlignment="Right"/></Grid>
+                <Button.Flyout>
+                    <Flyout x:Name="AvatarFilterFlyout" Placement="BottomEdgeAlignedRight">
+                        <Grid Width="400" Height="430" RowSpacing="8">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <TextBlock Text="対応アバターを選択" FontWeight="SemiBold"/>
+                            <TextBox x:Name="AvatarFilterSearchBox" Grid.Row="1" PlaceholderText="アバターを検索" TextChanged="AvatarFilterSearchBox_TextChanged"/>
+                            <ListView Grid.Row="2" ItemsSource="{x:Bind VisibleAvatarFilterOptions}" IsItemClickEnabled="True" ItemClick="AvatarFilterGrid_ItemClick" SelectionMode="None" HorizontalContentAlignment="Stretch">
+                                <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,6"/></Style></ListView.ItemContainerStyle>
+                                <ListView.ItemTemplate><DataTemplate><Border CornerRadius="9" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="8"><StackPanel Orientation="Horizontal" Spacing="12"><Border Width="52" Height="52" CornerRadius="7" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="23" Opacity="0.25"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/></Grid></Border><TextBlock Text="{Binding DisplayName}" Width="300" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/></StackPanel></Border></DataTemplate></ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+            <Button x:Name="ShopFilterButton" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Center">
+                <Grid><TextBlock x:Name="ShopFilterButtonText" Text="すべてのショップ" TextTrimming="CharacterEllipsis"/><FontIcon Glyph="&#xE70D;" HorizontalAlignment="Right"/></Grid>
+                <Button.Flyout>
+                    <Flyout x:Name="ShopFilterFlyout" Placement="BottomEdgeAlignedRight">
+                        <Grid Width="360" Height="430" RowSpacing="8">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <TextBlock Text="ショップを選択" FontWeight="SemiBold"/>
+                            <TextBox x:Name="ShopFilterSearchBox" Grid.Row="1" PlaceholderText="ショップを検索" TextChanged="ShopFilterSearchBox_TextChanged"/>
+                            <ListView Grid.Row="2" ItemsSource="{x:Bind VisibleShopFilterOptions}" IsItemClickEnabled="True" ItemClick="ShopFilterList_ItemClick" SelectionMode="None" HorizontalContentAlignment="Stretch">
+                                <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,6"/></Style></ListView.ItemContainerStyle>
+                                <ListView.ItemTemplate><DataTemplate><Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8"><StackPanel Orientation="Horizontal" Spacing="10"><Border Width="40" Height="40" CornerRadius="6" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" Opacity="0.25"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/></Grid></Border><TextBlock Text="{Binding DisplayName}" Width="280" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel></Border></DataTemplate></ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+            <ComboBox x:Name="PurchasedPackFilterBox" Grid.Row="1" Grid.Column="3" SelectedIndex="0" SelectionChanged="PurchasedPackFilterBox_SelectionChanged" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                <x:String>すべての取得形態</x:String>
+                <x:String>フルパック</x:String>
+                <x:String>単体購入</x:String>
+                <x:String>無料/ギフト</x:String>
+            </ComboBox>
+            <Button x:Name="ResetFiltersButton" Grid.Row="1" Grid.Column="4" Click="ResetFilters_Click" VerticalAlignment="Center" ToolTipService.ToolTip="フィルタをクリア">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE711;"/><TextBlock Text="フィルタをクリア"/></StackPanel>
+            </Button>
+        </Grid>
+
+        <Grid x:Name="LibraryToolbar" Grid.Column="1" Grid.Row="1" Padding="24,0,24,12" ColumnSpacing="12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="CategoryTabs" Orientation="Horizontal" Spacing="4"/>
+            </ScrollViewer>
+            <controls:HandCursorButton x:Name="SortButton" Grid.Column="1" Width="230" HorizontalContentAlignment="Stretch">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <FontIcon Glyph="&#xE8CB;" FontSize="15"/>
+                    <TextBlock x:Name="SortButtonText" Grid.Column="1" Text="登録日時 (新しい順)" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <FontIcon Grid.Column="2" Glyph="&#xE70D;" FontSize="12"/>
+                </Grid>
+                <controls:HandCursorButton.Flyout>
+                    <Flyout x:Name="SortFlyout" Placement="BottomEdgeAlignedRight">
+                        <Flyout.FlyoutPresenterStyle><Style TargetType="FlyoutPresenter"><Setter Property="Padding" Value="8"/></Style></Flyout.FlyoutPresenterStyle>
+                        <Grid x:Name="SortOptionsGrid" ColumnSpacing="2" RowSpacing="0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="176"/><ColumnDefinition Width="176"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        </Grid>
+                    </Flyout>
+                </controls:HandCursorButton.Flyout>
+            </controls:HandCursorButton>
+            <Button x:Name="RefreshLibraryButton" Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="再読み込み"/></StackPanel>
+            </Button>
+        </Grid>
+
+        <Grid x:Name="LibraryContent" Grid.Column="1" Grid.Row="2">
+            <GridView x:Name="ItemsGrid" Margin="16,0,16,16" Padding="0" ItemsSource="{x:Bind VisibleItems}" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}" IsItemClickEnabled="True" ItemClick="ItemsGrid_ItemClick" SelectionMode="None" SizeChanged="ItemsGrid_SizeChanged">
+                <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
+                <GridView.ItemTemplate>
+                    <DataTemplate>
+                        <Border Width="{Binding CardWidth}" Height="{Binding CardHeight}" Margin="4" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <Border Height="{Binding CardWidth}" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="8,8,0,0">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xEB9F;" FontSize="36" Opacity="0.25"/>
+                                        <Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/>
+                                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" Spacing="4">
+                                            <Border HorizontalAlignment="Left" Padding="8,3" CornerRadius="10" Background="{Binding CategoryBadgeBrush}"><TextBlock Text="{Binding Category}" Foreground="White" FontSize="11" FontWeight="SemiBold"/></Border>
+                                        </StackPanel>
+                                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4">
+                                            <Border HorizontalAlignment="Right" Padding="8,3" CornerRadius="10" Background="{Binding PurchasedPackBadgeBrush}" BorderBrush="{Binding PurchasedPackBadgeBorderBrush}" BorderThickness="1" Visibility="{Binding PurchasedPackBadgeVisibility}">
+                                                <TextBlock Text="{Binding PurchasedPackType}" Foreground="{Binding PurchasedPackBadgeForegroundBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <Border HorizontalAlignment="Right" Padding="8,3" CornerRadius="10" Background="#CC555B66" Visibility="{Binding CompatibilityCountBadgeVisibility}"><TextBlock Text="{Binding CompatibleAvatarCountText}" Foreground="White" FontSize="11" FontWeight="SemiBold"/></Border>
+                                            <Border HorizontalAlignment="Right" Padding="8,3" CornerRadius="10" Background="#FFD0575C" Visibility="{Binding FileUpdateBadgeVisibility}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE895;" Foreground="White" FontSize="11"/><TextBlock Text="更新あり" Foreground="White" FontSize="11" FontWeight="SemiBold"/></StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Height="72" Padding="10,7,10,5" Spacing="3">
+                                    <TextBlock Text="{Binding DisplayName}" Height="38" FontSize="14" LineHeight="18" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding ShopName}" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+            <StackPanel x:Name="EmptyState" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <FontIcon Glyph="&#xE8B7;" FontSize="48" Opacity="0.5"/>
+                <TextBlock x:Name="EmptyTitle" Text="商品が見つかりません" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="EmptyDescription" Text="検索条件を変更してください。" Opacity="0.7"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid x:Name="LibraryPager" Grid.Column="1" Grid.Row="3" Padding="24,4,24,16" ColumnSpacing="12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="1ページの表示数" VerticalAlignment="Center" Opacity="0.7"/>
+                <ComboBox x:Name="PageSizeBox" Width="88" SelectionChanged="PageSizeBox_SelectionChanged">
+                    <x:Int32>50</x:Int32><x:Int32>100</x:Int32><x:Int32>200</x:Int32>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                <Button x:Name="PreviousPageButton" Click="PreviousPage_Click" ToolTipService.ToolTip="前のページ"><FontIcon Glyph="&#xE76B;"/></Button>
+                <TextBlock x:Name="PageStatusText" MinWidth="150" TextAlignment="Center" VerticalAlignment="Center"/>
+                <Button x:Name="NextPageButton" Click="NextPage_Click" ToolTipService.ToolTip="次のページ"><FontIcon Glyph="&#xE76C;"/></Button>
+            </StackPanel>
+            <TextBlock x:Name="ResultRangeText" Grid.Column="2" VerticalAlignment="Center" Opacity="0.7"/>
+        </Grid>
+
+        <Grid x:Name="SettingsPage" Grid.Column="1" Grid.RowSpan="4" Visibility="Collapsed" Padding="28,24">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="760" HorizontalAlignment="Left" Spacing="18">
+                    <TextBlock Text="設定" Style="{StaticResource TitleTextBlockStyle}"/>
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="表示" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <TextBlock Text="一覧や詳細画面の商品名の表示方法を設定します。" Opacity="0.7" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                        <StackPanel Spacing="7">
+                            <ToggleSwitch x:Name="SmartTitleShorteningToggle" Header="商品名スマート短縮機能" IsOn="True" Toggled="SmartTitleShorteningToggle_Toggled"/>
+                            <TextBlock Text="SALE表記、対応アバター数、商品種別などの補助情報を自動的に省き、商品名を読みやすく表示します。元の商品名は変更しません。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="SmartTitleShorteningStatus" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Unityインポート先" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <TextBlock Text="分類ごとのAssets配下のフォルダ名と、Assets直下へ配置するかを設定します。アバターは常にAssets直下へ配置されます。" Opacity="0.7" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                        <StackPanel x:Name="ImportSettingsRows" Spacing="10"/>
+                    </Border>
+                    <TextBlock x:Name="ImportSettingsStatus" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                    <controls:HandCursorButton Click="SaveImportSettings_Click" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE74E;"/><TextBlock Text="設定を保存"/></StackPanel>
+                    </controls:HandCursorButton>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Border x:Name="DetailPanel" Grid.Column="2" Grid.RowSpan="4" Width="0" HorizontalAlignment="Right" Visibility="Collapsed" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,0,0,0" Canvas.ZIndex="20">
+            <Border.RenderTransform><CompositeTransform x:Name="DetailPanelTransform" TranslateX="480"/></Border.RenderTransform>
+            <Grid Width="420" Padding="24,18,24,24" RowSpacing="16">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <controls:HandCursorButton Click="CloseDetailPanel_Click" Background="Transparent" BorderThickness="0" Padding="4" Margin="0,0,6,0" ToolTipService.ToolTip="閉じる">
+                        <controls:HandCursorButton.Template><ControlTemplate TargetType="controls:HandCursorButton"><ContentPresenter/></ControlTemplate></controls:HandCursorButton.Template>
+                        <FontIcon Glyph="&#xE711;" FontSize="16"/>
+                    </controls:HandCursorButton>
+                    <TextBlock Grid.Column="1" Text="アイテム詳細" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
+                    <controls:HandCursorButton Grid.Column="2" Click="EditDetail_Click" Margin="0,0,8,0"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE70F;"/><TextBlock Text="アイテム情報編集"/></StackPanel></controls:HandCursorButton>
+                    <controls:HandCursorButton Grid.Column="3" ToolTipService.ToolTip="その他の操作"><FontIcon Glyph="&#xE712;"/>
+                        <controls:HandCursorButton.Flyout>
+                            <Flyout x:Name="DetailOperationsFlyout" Placement="BottomEdgeAlignedRight">
+                                <Flyout.FlyoutPresenterStyle><Style TargetType="FlyoutPresenter"><Setter Property="Padding" Value="0"/></Style></Flyout.FlyoutPresenterStyle>
+                                <StackPanel Width="230" Spacing="0">
+                                    <controls:HandCursorButton Style="{StaticResource DetailMenuItemStyle}" Click="ReloadItem_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="BOOTHデータ再取得"/></StackPanel></controls:HandCursorButton>
+                                    <controls:HandCursorButton Style="{StaticResource DetailMenuItemStyle}" Click="ResetCompatibility_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE777;"/><TextBlock Text="対応アバター個別設定リセット"/></StackPanel></controls:HandCursorButton>
+                                    <controls:HandCursorButton Style="{StaticResource DetailMenuItemStyle}" Click="CheckDuplicates_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE74D;"/><TextBlock Text="ダウンロード重複削除"/></StackPanel></controls:HandCursorButton>
+                                </StackPanel>
+                            </Flyout>
+                        </controls:HandCursorButton.Flyout>
+                    </controls:HandCursorButton>
+                </Grid>
+                <ScrollViewer Grid.Row="1" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+                    <StackPanel Spacing="10">
+                        <Border Width="360" Height="360" CornerRadius="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <Grid>
+                                <FontIcon Glyph="&#xEB9F;" FontSize="56" Opacity="0.2"/>
+                                <Image x:Name="DetailThumbnail" Stretch="UniformToFill"/>
+                                <Border x:Name="DetailCategoryBadge" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" Padding="10,4" CornerRadius="12">
+                                    <TextBlock x:Name="DetailCategoryText" Foreground="White" FontWeight="SemiBold"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <Grid Width="360" ColumnSpacing="6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="66"/><ColumnDefinition Width="66"/></Grid.ColumnDefinitions>
+                            <controls:HandCursorButton Click="DetailShop_Click" PointerEntered="DetailShop_PointerEntered" PointerExited="DetailShop_PointerExited" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">
+                                <controls:HandCursorButton.Template><ControlTemplate TargetType="controls:HandCursorButton"><Grid Background="Transparent"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/></Grid></ControlTemplate></controls:HandCursorButton.Template>
+                                <Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="10"><Border Width="30" Height="30" CornerRadius="5" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="13" Opacity="0.3"/><Image x:Name="DetailShopThumbnail" Stretch="UniformToFill"/></Grid></Border><TextBlock x:Name="DetailShop" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel>
+                                </Border>
+                            </controls:HandCursorButton>
+                            <controls:HandCursorButton Grid.Column="1" Click="DetailDownloadedProducts_Click" Padding="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTipService.ToolTip="ダウンロードした商品を表示">
+                                <StackPanel Spacing="2" HorizontalAlignment="Center"><FontIcon Glyph="&#xE896;" FontSize="17"/><TextBlock Text="DL商品" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
+                            </controls:HandCursorButton>
+                            <controls:HandCursorButton x:Name="DetailOpenBoothButton" Grid.Column="2" Click="DetailOpenBooth_Click" Padding="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTipService.ToolTip="BOOTH商品ページを開く">
+                                <StackPanel Spacing="2" HorizontalAlignment="Center"><FontIcon Glyph="&#xE774;" FontSize="17"/><TextBlock Text="商品ページ" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
+                            </controls:HandCursorButton>
+                        </Grid>
+                        <TextBlock x:Name="DetailName" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <Grid x:Name="DetailTagScroller">
+                            <ItemsControl x:Name="DetailTagChips">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:SimpleWrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <controls:LinkChipBorder Tag="{Binding}" Tapped="IdentifierChip_Tapped" IsHitTestVisible="{Binding IsClickable}" Background="{Binding Background}" BorderBrush="{Binding BorderBrush}" CornerRadius="13" Padding="10,5" Margin="0,0,6,6" BorderThickness="{Binding BorderThickness}">
+                                            <controls:LinkChipBorder.Template><ControlTemplate TargetType="controls:LinkChipBorder"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border></ControlTemplate></controls:LinkChipBorder.Template>
+                                            <TextBlock Text="{Binding Text}" Foreground="{Binding Foreground}" FontSize="12" TextWrapping="NoWrap"/>
+                                        </controls:LinkChipBorder>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                        <StackPanel x:Name="DetailCompatibilityTitle" Orientation="Horizontal" Spacing="7" Margin="0,6,0,0" MinHeight="26" VerticalAlignment="Center">
+                            <Border x:Name="DetailPurchasedPackBadge" Padding="8,3" CornerRadius="10" BorderThickness="1" Visibility="Collapsed" VerticalAlignment="Center">
+                                <TextBlock x:Name="DetailPurchasedPackText" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="対応アバター" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <FontIcon x:Name="DetailCompatibilityEvidenceIcon" Glyph="&#xE8FD;" FontSize="14" Opacity="0.7" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ItemsControl x:Name="DetailCompatibility">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:SimpleWrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,2,4">
+                                        <TextBlock Text="{Binding Prefix}" Visibility="{Binding PrefixVisibility}" Margin="5,0" VerticalAlignment="Center"/>
+                                        <controls:LinkChipBorder Tag="{Binding}" Tapped="IdentifierChip_Tapped" IsHitTestVisible="{Binding IsClickable}" Background="Transparent" BorderThickness="0" Padding="0">
+                                            <controls:LinkChipBorder.Template><ControlTemplate TargetType="controls:LinkChipBorder"><ContentPresenter/></ControlTemplate></controls:LinkChipBorder.Template>
+                                            <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="NoWrap"/>
+                                        </controls:LinkChipBorder>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="DetailPlacement" Visibility="Collapsed"/>
+                        <Border Margin="0,6,0,0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                            <StackPanel Spacing="0">
+                                <Grid Padding="12,8" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <FontIcon Glyph="&#xE8B7;" FontSize="16"/>
+                                        <TextBlock Text="ダウンロードファイル" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="DownloadFileTotalCountText" Text="0個" FontSize="11" Opacity="0.65" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <controls:HandCursorButton Grid.Column="1" Click="DownloadFilesOpenFolder_Click" MinWidth="118" Padding="10,5" CornerRadius="14" ToolTipService.ToolTip="保存フォルダーを開く">
+                                        <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE8B7;" FontSize="12"/><TextBlock Text="フォルダーを開く" FontSize="11" TextWrapping="NoWrap"/></StackPanel>
+                                    </controls:HandCursorButton>
+                                </Grid>
+                                <ItemsControl ItemsSource="{x:Bind DownloadFileCategories}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Spacing="0">
+                                                <controls:HandCursorButton Tag="{Binding}" Click="DownloadFileCategory_Click" Margin="0" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                                    <Grid BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" ColumnSpacing="9">
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="5"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <Border Background="{Binding AccentBrush}"/>
+                                                        <FontIcon Grid.Column="1" Margin="10,10,0,10" Glyph="{Binding Glyph}" Foreground="{Binding AccentBrush}" FontSize="16" VerticalAlignment="Center"/>
+                                                        <StackPanel Grid.Column="2" Spacing="1" Margin="0,7" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding Subtitle}" Visibility="{Binding SubtitleVisibility}" FontSize="10" Opacity="0.55" TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="3" Text="{Binding CountText}" Margin="0,10" FontSize="11" Opacity="0.65" VerticalAlignment="Center"/>
+                                                        <FontIcon Grid.Column="4" Glyph="{Binding ChevronGlyph}" Margin="8,10,12,10" FontSize="11" Opacity="0.55" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </controls:HandCursorButton>
+                                                <ListView ItemsSource="{Binding Files}" Visibility="{Binding ExpandedVisibility}" SelectionMode="None" Padding="0" MaxHeight="360" ScrollViewer.VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch">
+                                                    <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="MinHeight" Value="0"/></Style></ListView.ItemContainerStyle>
+                                                    <ListView.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <controls:HandCursorButton Style="{StaticResource DownloadFileButtonStyle}" Tag="{Binding}" Click="DownloadFile_Click">
+                                                                <Grid Padding="12,9,12,9" BorderBrush="{Binding AccentBrush}" BorderThickness="3,0,0,0" Background="Transparent">
+                                                                    <StackPanel Spacing="4">
+                                                                        <StackPanel Visibility="{Binding BadgeRowVisibility}" Orientation="Horizontal" Spacing="5">
+                                                                            <Border Visibility="{Binding MaterialBadgeVisibility}" Background="#FF6D72A8" CornerRadius="10" Padding="7,2"><TextBlock Text="マテリアル" Foreground="White" FontSize="9"/></Border>
+                                                                            <Border Visibility="{Binding DuplicateBadgeVisibility}" Background="#FFB85C5C" CornerRadius="10" Padding="7,2"><TextBlock Text="同一名あり" Foreground="White" FontSize="9"/></Border>
+                                                                        </StackPanel>
+                                                                        <TextBlock Text="{Binding FileName}" Foreground="#FF202124" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                                                        <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE8B7;" Foreground="#FF555B66" FontSize="11" Opacity="0.75"/><TextBlock Text="{Binding DirectoryText}" Foreground="#FF555B66" MaxWidth="250" FontSize="10" TextTrimming="CharacterEllipsis"/></StackPanel>
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                            </controls:HandCursorButton>
+                                                        </DataTemplate>
+                                                    </ListView.ItemTemplate>
+                                                </ListView>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                        <Expander Visibility="Collapsed" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <FontIcon Glyph="&#xE7B8;" FontSize="16"/>
+                                    <TextBlock Text="Unityパッケージ" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="UnityPackageCountText" Text="0個" FontSize="11" Opacity="0.65" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel Spacing="0" Padding="0" Margin="-16,0,-16,-16">
+                                <TextBlock x:Name="UnityPackageEmptyText" Text="Unityパッケージはありません" FontSize="12" Opacity="0.6" Margin="8"/>
+                                <ListView ItemsSource="{x:Bind UnityPackages}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" SelectionMode="None" Padding="0">
+                                    <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="MinHeight" Value="0"/></Style></ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <controls:HandCursorButton Tag="{Binding}" Click="UnityPackage_Click" Margin="0" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" ToolTipService.ToolTip="Unityへインポート">
+                                                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,9" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                                                    <StackPanel Spacing="5">
+                                                        <Grid ColumnSpacing="6">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding FileName}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                            <Border Grid.Column="1" Visibility="{Binding DuplicateBadgeVisibility}" Background="#FFB85C5C" CornerRadius="10" Padding="7,2" VerticalAlignment="Top"><TextBlock Text="同一名のファイルがあります" Foreground="White" FontSize="9"/></Border>
+                                                        </Grid>
+                                                        <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE787;" FontSize="11" Opacity="0.6"/><TextBlock Text="{Binding LastWriteTimeText}" FontSize="10" Opacity="0.65"/></StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE8B7;" FontSize="11" Opacity="0.6"/><TextBlock Text="{Binding DirectoryText}" FontSize="10" Opacity="0.65" TextTrimming="CharacterEllipsis"/></StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </controls:HandCursorButton>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+                <StackPanel Grid.Row="3" Spacing="8">
+                  <ProgressBar x:Name="UnityImportProgress" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed"/>
+                  <TextBlock x:Name="DuplicateStatusText" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ContentDialog x:Name="DownloadFilesDialog" Grid.RowSpan="4" CloseButtonText="閉じる" DefaultButton="Close">
+            <Grid Width="620" MaxHeight="620">
+                <TextBlock x:Name="DownloadFilesEmptyText" Text="該当するファイルはありません" Margin="12" Opacity="0.65" Visibility="Collapsed"/>
+                <ListView ItemsSource="{x:Bind VisibleDownloadFiles}" SelectionMode="None" Padding="0" HorizontalContentAlignment="Stretch">
+                    <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="MinHeight" Value="0"/></Style></ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <controls:HandCursorButton Tag="{Binding}" Click="DownloadFile_Click" Margin="0" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                <Grid Padding="12,10" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding FileName}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE787;" FontSize="11" Opacity="0.6"/><TextBlock Text="{Binding LastWriteTimeText}" FontSize="10" Opacity="0.65"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE8B7;" FontSize="11" Opacity="0.6"/><TextBlock Text="{Binding DirectoryText}" MaxWidth="300" FontSize="10" Opacity="0.65" TextTrimming="CharacterEllipsis"/></StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" Visibility="{Binding DuplicateBadgeVisibility}" Background="#FFB85C5C" CornerRadius="10" Padding="7,2" VerticalAlignment="Center"><TextBlock Text="同一名のファイルがあります" Foreground="White" FontSize="9"/></Border>
+                                </Grid>
+                            </controls:HandCursorButton>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </ContentDialog>
+
+        <ContentDialog x:Name="DownloadedProductsDialog" Grid.RowSpan="4" Title="ダウンロードした商品" CloseButtonText="閉じる" DefaultButton="Close">
+            <Grid Width="480" MaxHeight="520">
+                <TextBlock x:Name="DownloadedProductsEmptyText" Text="購入済みの商品種類をBLMデータから確認できませんでした。" Margin="4,12" Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                <ListView ItemsSource="{x:Bind DownloadedProductNames}" SelectionMode="None" Padding="0" HorizontalContentAlignment="Stretch">
+                    <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,6"/></Style></ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Padding="12,10">
+                                <StackPanel Orientation="Horizontal" Spacing="9"><FontIcon Glyph="&#xE896;" FontSize="15" Opacity="0.7"/><TextBlock Text="{Binding}" FontSize="14" TextWrapping="Wrap"/></StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </ContentDialog>
+
+        <ContentDialog x:Name="DetailDialog" Grid.RowSpan="4" Title="アイテム情報を編集" PrimaryButtonText="保存" CloseButtonText="キャンセル" DefaultButton="Primary" PrimaryButtonClick="DetailDialog_PrimaryButtonClick">
+            <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Enabled">
+            <StackPanel Width="460" Spacing="14" Padding="0,0,10,0">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="分類" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="DetailCategory" ItemsSource="{x:Bind DetailCategories}" HorizontalAlignment="Stretch" SelectionChanged="DetailCategory_SelectionChanged"/>
+                </StackPanel>
+                <StackPanel Spacing="5">
+                    <TextBlock Text="Unityインポート先" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="EditImportDestinationText" FontSize="12" Opacity="0.7"/>
+                    <CheckBox x:Name="DetailImportRoot" Content="Assets直下に配置する" Checked="DetailImportRoot_Changed" Unchecked="DetailImportRoot_Changed"/>
+                </StackPanel>
+                <StackPanel x:Name="AvatarIdentifierEditor" Spacing="10" Visibility="Collapsed">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="アバター識別タグ" FontWeight="SemiBold"/>
+                        <TextBlock Text="メイン呼称も識別タグとして照合されます。表記ゆれ、英語名、BOOTH商品IDなどは＋ボタンで追加できます。大文字小文字、全角半角の違いは無視します。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox x:Name="AvatarPrimaryIdentifierBox"/>
+                            <Border Grid.Column="1" Padding="10,4" CornerRadius="12" Background="#FF555B66" VerticalAlignment="Center"><TextBlock Text="メイン呼称" Foreground="White" FontSize="12"/></Border>
+                        </Grid>
+                        <StackPanel x:Name="AvatarIdentifierRows" Spacing="6"/>
+                        <controls:HandCursorButton Click="AddAvatarIdentifier_Click" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE710;"/><TextBlock Text="識別タグを追加"/></StackPanel>
+                        </controls:HandCursorButton>
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="共通素体のアバター" FontWeight="SemiBold"/>
+                        <TextBlock Text="候補を開き、共通素体として扱うアバターを複数選択できます。" FontSize="12" Opacity="0.7"/>
+                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                            <Grid><TextBlock x:Name="SharedBodySelectionSummary" Text="選択なし"/><FontIcon Glyph="&#xE70D;" HorizontalAlignment="Right"/></Grid>
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedLeft">
+                                    <Grid Width="400" Height="420" RowSpacing="8">
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                        <TextBlock Text="共通素体のアバターを選択" FontWeight="SemiBold"/>
+                                        <TextBox x:Name="SharedBodySearchBox" Grid.Row="1" PlaceholderText="アバターを検索" TextChanged="SharedBodySearchBox_TextChanged"/>
+                                        <ListView x:Name="SharedBodyAvatarList" Grid.Row="2" ItemsSource="{x:Bind VisibleSharedBodyOptions}" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch">
+                                            <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,6"/></Style></ListView.ItemContainerStyle>
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Checked="SharedBodyOption_Changed" Unchecked="SharedBodyOption_Changed" HorizontalAlignment="Stretch">
+                                                        <Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="7" Margin="6,0,0,0">
+                                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                                <Border Width="52" Height="52" CornerRadius="6" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="23" Opacity="0.25"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/></Grid></Border>
+                                                                <TextBlock Text="{Binding DisplayName}" Width="280" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </Grid>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel x:Name="CompatibilityEditor" Spacing="6">
+                    <TextBlock Text="対応アバター" FontWeight="SemiBold"/>
+                    <TextBlock Text="自動判定との差分だけを手動追加・除外として保存します。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                    <CheckBox x:Name="AllAvatarsCheckBox" Content="全アバター対応" Checked="AllAvatarsCheckBox_Changed" Unchecked="AllAvatarsCheckBox_Changed"/>
+                    <Button x:Name="CompatibilitySelectionButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Grid><TextBlock x:Name="CompatibilitySelectionSummary" Text="選択なし"/><FontIcon Glyph="&#xE70D;" HorizontalAlignment="Right"/></Grid>
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                <Grid Width="400" Height="420" RowSpacing="8">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                    <TextBlock Text="対応アバターを選択" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="CompatibilitySearchBox" Grid.Row="1" PlaceholderText="アバターを検索" TextChanged="CompatibilitySearchBox_TextChanged"/>
+                                    <ListView x:Name="CompatibilityAvatarList" Grid.Row="2" ItemsSource="{x:Bind VisibleCompatibilityOptions}" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch">
+                                        <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,6"/></Style></ListView.ItemContainerStyle>
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Checked="CompatibilityOption_Changed" Unchecked="CompatibilityOption_Changed" HorizontalAlignment="Stretch">
+                                                    <Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="7" Margin="6,0,0,0">
+                                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                                            <Border Width="52" Height="52" CornerRadius="6" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="23" Opacity="0.25"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/></Grid></Border>
+                                                            <TextBlock Text="{Binding DisplayName}" Width="280" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </ContentDialog>
+
+    </Grid>
+</Window>

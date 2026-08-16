@@ -1,0 +1,26 @@
+# Visual Studio / .NET build output
+.vs/
+**/bin/
+**/obj/
+AppPackages/
+BundleArtifacts/
+Generated Files/
+TestResults/
+
+# Per-user IDE settings
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local diagnostics and temporary investigation data
+.diagnostics-*
+.codex-*/
+SchemaInspector/
+*.log
+*.tmp
+
+# Local signing artifacts
+*.pfx
+*.cer
+*.snk
