@@ -49,6 +49,8 @@ $thumbprint = .\scripts\New-DevelopmentCertificate.ps1
 
 本番配布には信頼された証明書によるコード署名が必要です。
 
+他PCへ自己署名版を渡す手順は [docs/INSTALL-OTHER-PC.md](docs/INSTALL-OTHER-PC.md) を参照してください。
+
 ## 開発を再開する方へ
 
 最初に [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を読んでください。現在の構成、壊してはいけない前提、確認済みの制約、検証手順をまとめています。

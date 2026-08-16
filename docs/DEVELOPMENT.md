@@ -99,6 +99,7 @@ dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 
 - 開発用の自己署名証明書は、テスト PC の Local Machine `TrustedPeople` に信頼登録が必要で、管理者 PowerShell を使う。
 - `scripts/Build-Msix.ps1` が署名済みパッケージを `artifacts/msix` に生成する。
+- `Build-Msix.ps1 -Version` はビルド中だけ package manifest の版番号を置換し、終了時に元へ戻す。MSIX の更新判定に使われるため、配布のたびに版番号を増やす。
 - `scripts/New-AppInstaller.ps1` は公開 HTTPS URL が決まった後の自動更新用。
 - 正式配布では自己署名証明書を使わず、信頼されたコード署名サービスまたは証明書を使う。
 

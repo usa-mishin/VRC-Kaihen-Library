@@ -11,6 +11,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $repositoryRoot 'VrcKaihenLibrary\VrcKaihenLibrary.csproj'
+$manifestPath = Join-Path $repositoryRoot 'VrcKaihenLibrary\Package.appxmanifest'
 $outputRoot = Join-Path $repositoryRoot 'artifacts\msix'
 $vsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 
@@ -50,9 +51,26 @@ if ($signingEnabled) {
     $arguments += "/p:PackageCertificateThumbprint=$CertificateThumbprint"
 }
 
-& $msBuildPath @arguments
-if ($LASTEXITCODE -ne 0) {
-    throw "MSIX build failed with exit code $LASTEXITCODE."
+$manifestContent = [System.IO.File]::ReadAllText($manifestPath)
+$versionPattern = '(<Identity\b[^>]*\bVersion=")[^"]+("[^>]*>)'
+if (-not [regex]::IsMatch($manifestContent, $versionPattern, [Text.RegularExpressions.RegexOptions]::Singleline)) {
+    throw 'The package Identity version could not be located in Package.appxmanifest.'
+}
+
+try {
+    $versionedManifest = [regex]::Replace(
+        $manifestContent,
+        $versionPattern,
+        { param($match) $match.Groups[1].Value + $Version + $match.Groups[2].Value },
+        [Text.RegularExpressions.RegexOptions]::Singleline)
+    [System.IO.File]::WriteAllText($manifestPath, $versionedManifest, [Text.UTF8Encoding]::new($false))
+
+    & $msBuildPath @arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "MSIX build failed with exit code $LASTEXITCODE."
+    }
+} finally {
+    [System.IO.File]::WriteAllText($manifestPath, $manifestContent, [Text.UTF8Encoding]::new($false))
 }
 
 $package = Get-ChildItem -LiteralPath $outputRoot -Filter '*.msix' -Recurse |
