@@ -111,7 +111,18 @@
         <Grid x:Name="LibraryHeader" Grid.Column="1" Padding="24,20,24,12" ColumnSpacing="10" RowSpacing="10">
             <Grid.ColumnDefinitions><ColumnDefinition Width="270"/><ColumnDefinition Width="180"/><ColumnDefinition Width="180"/><ColumnDefinition Width="160"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <TextBlock x:Name="LibraryTitle" Grid.ColumnSpan="6" Text="VRC改変ライブラリ" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+            <StackPanel Grid.ColumnSpan="6" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <Image Source="ms-appx:///Assets/Square44x44Logo.scale-200.png" Width="40" Height="40" Stretch="Uniform"/>
+                <TextBlock x:Name="LibraryTitle"
+                           Text="VRC改変ライブラリ"
+                           FontFamily="Segoe UI Variable Display"
+                           FontSize="28"
+                           FontWeight="SemiBold"
+                           CharacterSpacing="-15"
+                           Foreground="#FF30323A"
+                           TextWrapping="NoWrap"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
             <TextBlock x:Name="StatusText" Visibility="Collapsed"/>
             <AutoSuggestBox x:Name="SearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="商品名、ショップ名、タグを検索" TextChanged="SearchBox_TextChanged" QueryIcon="Find" VerticalAlignment="Center"/>
             <Button x:Name="AvatarFilterButton" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Center">

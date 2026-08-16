@@ -15,8 +15,8 @@ ZIP を右クリックして「すべて展開」を選びます。ZIP の中か
 
 展開後、少なくとも次の2ファイルがあることを確認します。
 
-- `VrcKaihenLibrary_1.0.3.0_x64.cer`
-- `VrcKaihenLibrary_1.0.3.0_x64.msix`
+- `VrcKaihenLibrary_1.0.4.0_x64.cer`
+- `VrcKaihenLibrary_1.0.4.0_x64.msix`
 
 ## 2. 署名証明書を信頼する
 

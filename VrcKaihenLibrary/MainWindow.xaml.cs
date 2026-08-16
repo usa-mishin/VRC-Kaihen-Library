@@ -172,6 +172,8 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        var windowIconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
+        if (File.Exists(windowIconPath)) AppWindow.SetIcon(windowIconPath);
         PageSizeBox.SelectedItem = 50;
         InitializeSortMenu();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 800));
