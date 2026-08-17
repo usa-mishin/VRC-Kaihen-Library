@@ -93,18 +93,6 @@
                     <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
             </Storyboard>
-            <Storyboard x:Name="OpenOperationPopupStoryboard">
-                <DoubleAnimation Storyboard.TargetName="OperationPopupTransform" Storyboard.TargetProperty="TranslateY" From="32" To="0" Duration="0:0:0.28">
-                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                </DoubleAnimation>
-                <DoubleAnimation Storyboard.TargetName="OperationPopup" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.2"/>
-            </Storyboard>
-            <Storyboard x:Name="CloseOperationPopupStoryboard">
-                <DoubleAnimation Storyboard.TargetName="OperationPopupTransform" Storyboard.TargetProperty="TranslateY" From="0" To="20" Duration="0:0:0.18">
-                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseIn"/></DoubleAnimation.EasingFunction>
-                </DoubleAnimation>
-                <DoubleAnimation Storyboard.TargetName="OperationPopup" Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.15"/>
-            </Storyboard>
         </Grid.Resources>
         <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -479,9 +467,7 @@
                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16"
-                Opacity="0" Visibility="Collapsed" Translation="0,0,32">
-            <Border.Shadow><ThemeShadow/></Border.Shadow>
-            <Border.RenderTransform><TranslateTransform x:Name="OperationPopupTransform" Y="32"/></Border.RenderTransform>
+                Opacity="0" Visibility="Collapsed">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="6"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

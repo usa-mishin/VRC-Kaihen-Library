@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -11,6 +12,7 @@ using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VrcKaihenLibrary.Models;
@@ -1532,9 +1534,7 @@ public sealed partial class MainWindow : Window
         OperationPopupProgress.IsIndeterminate = kind == OperationPopupKind.Progress && progress is null;
         if (progress is not null) OperationPopupProgress.Value = progress.Value;
         OperationPopup.Visibility = Visibility.Visible;
-        OpenOperationPopupStoryboard.Stop();
-        CloseOperationPopupStoryboard.Stop();
-        OpenOperationPopupStoryboard.Begin();
+        AnimateOperationPopup(show: true);
         if (autoDismiss) _ = AutoDismissOperationPopupAsync(version);
     }
 
@@ -1554,9 +1554,30 @@ public sealed partial class MainWindow : Window
     private async Task HideOperationPopupAsync(int version)
     {
         if (OperationPopup.Visibility != Visibility.Visible) return;
-        CloseOperationPopupStoryboard.Begin();
-        await Task.Delay(180);
+        AnimateOperationPopup(show: false);
+        await Task.Delay(190);
         if (!_isClosing && version == _operationPopupVersion) OperationPopup.Visibility = Visibility.Collapsed;
+    }
+
+    private void AnimateOperationPopup(bool show)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(OperationPopup);
+        var compositor = visual.Compositor;
+        var easing = compositor.CreateCubicBezierEasingFunction(show
+            ? new Vector2(0.16f, 1f)
+            : new Vector2(0.55f, 0f), show
+            ? new Vector2(0.3f, 1f)
+            : new Vector2(1f, 0.45f));
+        var offset = compositor.CreateVector3KeyFrameAnimation();
+        offset.Duration = TimeSpan.FromMilliseconds(show ? 280 : 180);
+        offset.InsertKeyFrame(0, show ? new Vector3(0, 32, 0) : Vector3.Zero);
+        offset.InsertKeyFrame(1, show ? Vector3.Zero : new Vector3(0, 20, 0), easing);
+        var opacity = compositor.CreateScalarKeyFrameAnimation();
+        opacity.Duration = TimeSpan.FromMilliseconds(show ? 200 : 150);
+        opacity.InsertKeyFrame(0, show ? 0 : 1);
+        opacity.InsertKeyFrame(1, show ? 1 : 0, easing);
+        visual.StartAnimation("Offset", offset);
+        visual.StartAnimation("Opacity", opacity);
     }
 
     private async void OperationPopupClose_Click(object sender, RoutedEventArgs e)
