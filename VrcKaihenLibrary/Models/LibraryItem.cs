@@ -40,6 +40,7 @@ public sealed class LibraryItem : INotifyPropertyChanged
     public IReadOnlyList<string> DownloadedVariationNames { get; set; } = [];
     public bool HasBoothVariationRows { get; set; }
     public bool HasPurchasedVariationOrder { get; set; }
+    public IReadOnlyList<string> LatestDownloadableFileNames { get; set; } = [];
     public string? ThumbnailUrl { get; set; }
     public string FolderPath { get; set; } = string.Empty;
     public long? BoothItemId { get; set; }
@@ -168,7 +169,7 @@ public sealed class LibraryItem : INotifyPropertyChanged
         var value = Normalize(text).Trim();
         if (Regex.IsMatch(value, @"^(?:(?:\d+|複数|全)\s*(?:アバター(?:[+＋]α)?(?:対応)?|avatars?))(?:ギミック|\s+vrc\s*hair)?$", RegexOptions.IgnoreCase)) return true;
         if (Regex.IsMatch(value, @"^(?:vrchat(?:想定)?(?:・ma対応)?|vrc\s*(?:衣装|hair|想定|向けしっぽアクセサリー)|3d(?:衣装モデル|モデル)?|オリジナル3dモデル|vrchat向け衣装モデル|liltoon対応|アイテクスチャ|アクセサリー)$", RegexOptions.IgnoreCase)) return true;
-        if (Regex.IsMatch(value, @"^(?:pb|ma対応|ma設定済み?|簡単導入(?:・ma対応)?|無料\s*/\s*free|セール中?|sale中?|update)$", RegexOptions.IgnoreCase)) return true;
+        if (Regex.IsMatch(value, @"^(?:pb|ma対応|ma設定済み?|簡単導入(?:・ma対応)?|無料\s*/\s*free|セール中?|sale[\s_・-]*中?|update)$", RegexOptions.IgnoreCase)) return true;
         if (Regex.IsMatch(value, @"^(?:無料版あり|無料有\s*/\s*[+＋]?free\s*sample|全(?:118|6)種|50種|23types|10color[+＋]10)$", RegexOptions.IgnoreCase)) return true;
 
         var withoutCompatibilitySuffix = Regex.Replace(value, @"(?:専用|対応)$", string.Empty, RegexOptions.IgnoreCase).Trim();

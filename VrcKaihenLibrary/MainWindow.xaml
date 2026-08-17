@@ -408,6 +408,7 @@
                                                                     <StackPanel Spacing="4">
                                                                         <StackPanel Visibility="{Binding BadgeRowVisibility}" Orientation="Horizontal" Spacing="5">
                                                                             <Border Visibility="{Binding MaterialBadgeVisibility}" Background="#FF6D72A8" CornerRadius="10" Padding="7,2"><TextBlock Text="マテリアル" Foreground="White" FontSize="9"/></Border>
+                                                                            <Border Visibility="{Binding NewVersionBadgeVisibility}" Background="#FFD0575C" CornerRadius="10" Padding="7,2"><TextBlock Text="新バージョンあり" Foreground="White" FontSize="9"/></Border>
                                                                             <Border Visibility="{Binding DuplicateBadgeVisibility}" Background="#FFB85C5C" CornerRadius="10" Padding="7,2"><TextBlock Text="同一名あり" Foreground="White" FontSize="9"/></Border>
                                                                         </StackPanel>
                                                                         <TextBlock Text="{Binding FileName}" Foreground="#FF202124" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
@@ -482,7 +483,10 @@
                                             <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE8B7;" FontSize="11" Opacity="0.6"/><TextBlock Text="{Binding DirectoryText}" MaxWidth="300" FontSize="10" Opacity="0.65" TextTrimming="CharacterEllipsis"/></StackPanel>
                                         </StackPanel>
                                     </StackPanel>
-                                    <Border Grid.Column="1" Visibility="{Binding DuplicateBadgeVisibility}" Background="#FFB85C5C" CornerRadius="10" Padding="7,2" VerticalAlignment="Center"><TextBlock Text="同一名のファイルがあります" Foreground="White" FontSize="9"/></Border>
+                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                        <Border Visibility="{Binding NewVersionBadgeVisibility}" Background="#FFD0575C" CornerRadius="10" Padding="7,2"><TextBlock Text="新バージョンあり" Foreground="White" FontSize="9"/></Border>
+                                        <Border Visibility="{Binding DuplicateBadgeVisibility}" Background="#FFB85C5C" CornerRadius="10" Padding="7,2"><TextBlock Text="同一名のファイルがあります" Foreground="White" FontSize="9"/></Border>
+                                    </StackPanel>
                                 </Grid>
                             </controls:HandCursorButton>
                         </DataTemplate>

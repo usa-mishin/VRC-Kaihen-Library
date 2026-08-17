@@ -105,6 +105,17 @@ public sealed class BoothLibraryReader
                          AND json_extract(n.content, '$.type') = 'latestDownloadableAvailable'
                          AND n.read = 0
                    ) AS has_file_update,
+                   COALESCE((SELECT group_concat(file_name, char(31)) FROM (
+                       SELECT DISTINCT CAST(latest_file.value AS TEXT) AS file_name
+                       FROM notifications latest_notification
+                       JOIN booth_item_variations latest_variation
+                         ON latest_variation.id = CAST(json_extract(latest_notification.content, '$.data[0]') AS INTEGER)
+                       JOIN json_each(latest_notification.content, '$.data[1]') latest_file
+                       WHERE latest_variation.booth_item_id = bi.id
+                         AND json_extract(latest_notification.content, '$.type') = 'latestDownloadableAvailable'
+                         AND latest_notification.read = 0
+                       ORDER BY latest_notification.id DESC, file_name
+                   )), '') AS latest_downloadable_file_names,
                    s.thumbnail_url AS shop_thumbnail_url
             FROM registered_items r
             LEFT JOIN booth_items bi ON bi.id = r.booth_item_id
@@ -149,7 +160,10 @@ public sealed class BoothLibraryReader
                 HasBoothVariationRows = !reader.IsDBNull(14) && reader.GetBoolean(14),
                 HasPurchasedVariationOrder = !reader.IsDBNull(15) && reader.GetBoolean(15),
                 HasFileUpdate = !reader.IsDBNull(16) && reader.GetBoolean(16),
-                ShopThumbnailUrl = reader.IsDBNull(17) ? null : reader.GetString(17)
+                LatestDownloadableFileNames = reader.IsDBNull(17) || string.IsNullOrWhiteSpace(reader.GetString(17))
+                    ? []
+                    : reader.GetString(17).Split('\u001F', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                ShopThumbnailUrl = reader.IsDBNull(18) ? null : reader.GetString(18)
             });
         }
         return result;
