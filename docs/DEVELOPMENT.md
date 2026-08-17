@@ -42,7 +42,7 @@ dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 - `Services/UnityImportTargetResolver.cs`: カテゴリと設定から Unity の配置先を決定
 - `Services/UnityPackageImportService.cs`: `.unitypackage` を検査し、必要なら pathname を書き換えて再生成・キャッシュ
 - `Services/UnityEditorBridgeService.cs`: 起動中 Unity Editor の検出とインポート要求の受け渡し
-- `scripts/`: 開発証明書、MSIX ビルド・インストール、App Installer 生成
+- `scripts/`: 開発証明書、MSIX ビルド・インストール、App Installer、非パッケージ版EXEインストーラー生成
 
 ## 守るべき設計上の前提
 
@@ -105,6 +105,15 @@ dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 - `scripts/New-AppInstaller.ps1` は公開 HTTPS URL が決まった後の自動更新用。
 - 正式配布では自己署名証明書を使わず、信頼されたコード署名サービスまたは証明書を使う。
 
+## EXE インストーラーと配布
+
+- `scripts/Build-ExeInstaller.ps1` は x64 の自己完結型・非パッケージ版を publish し、Inno Setup 6 で `artifacts/installer` に単一のセットアップEXEを生成する。
+- インストール先はユーザー単位の `%LOCALAPPDATA%\Programs\VrcKaihenLibrary` で、管理者権限を要求しない。同じInno Setup `AppId` と、より大きい版番号で上書き更新する。
+- ユーザーデータ `%LOCALAPPDATA%\VrcKaihenLibrary` はインストール先の外に置き、更新・通常アンインストールで削除しない。
+- MSIX版とEXE版は別インストールになる。移行時はMSIX版をアンインストールしてからEXE版を導入するが、共通のユーザーデータは引き継ぐ。
+- GitHub Releasesにはタグと対応するセットアップEXEを添付する。`artifacts/` や署名秘密鍵はGitへコミットしない。手順の正本は `docs/EXE-DISTRIBUTION.md`。
+- 未署名EXEでも証明書の事前登録なしで実行できるが、SmartScreen警告が出る場合がある。正式証明書取得後はセットアップEXEにも署名する。
+
 ## 検証方針
 
 変更範囲に応じ、最低限次を確認します。
@@ -113,7 +122,7 @@ dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 2. BLM DB を読む変更では、DB が読み取り専用であることと欠損値を許容すること
 3. UI 変更では、一覧、詳細パネル、編集ダイアログ、スクロール、ウィンドウ終了を実機確認
 4. Unity 導入変更では、通常配置、Assets 直下、アバター、キャッシュ再利用、悪意ある archive path の拒否を確認
-5. 配布変更では Release/MSIX を別途ビルドし、インストール済みアプリを起動確認
+5. 配布変更では対象形式（MSIXまたはEXE）をReleaseビルドし、新規インストール、上書き更新、起動、アンインストール、ユーザーデータ保持を確認
 
 自動テストプロジェクトはまだありません。純粋ロジック（分類、タイトル短縮、取得種別、互換判定）を変更する際は、回帰を防ぐためテストプロジェクト追加を優先候補にしてください。
 

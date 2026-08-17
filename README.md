@@ -51,6 +51,17 @@ $thumbprint = .\scripts\New-DevelopmentCertificate.ps1
 
 他PCへ自己署名版を渡す手順は [docs/INSTALL-OTHER-PC.md](docs/INSTALL-OTHER-PC.md) を参照してください。
 
+## EXE インストーラー
+
+証明書の事前登録が不要な、自己完結型の非パッケージ版も生成できます。ビルドには Inno Setup 6 が必要です。
+
+```powershell
+winget install --id JRSoftware.InnoSetup -e
+.\scripts\Build-ExeInstaller.ps1 -Version 1.0.6.0 -Platform x64
+```
+
+生成物は `artifacts/installer` に保存されます。更新時は同じインストーラーをより大きな版番号で生成し、既存環境で実行すると上書き更新されます。詳細は [docs/EXE-DISTRIBUTION.md](docs/EXE-DISTRIBUTION.md) を参照してください。
+
 ## 開発を再開する方へ
 
 最初に [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を読んでください。現在の構成、壊してはいけない前提、確認済みの制約、検証手順をまとめています。
