@@ -9,94 +9,80 @@ namespace VrcKaihenLibrary.Services;
 
 public static partial class DownloadUpdateCandidateService
 {
-    public static IReadOnlySet<string> FindUnityPackageCandidates(
-        string rootPath,
-        IEnumerable<string> unityPackagePaths,
-        IEnumerable<string> latestDownloadableFileNames)
+    public static IReadOnlySet<string> FindUnityPackageCandidates(string rootPath, IEnumerable<string> unityPackagePaths)
     {
-        var packages = unityPackagePaths.ToList();
-        var latest = latestDownloadableFileNames
+        var packages = unityPackagePaths
+            .Select(path => new PackageVersionInfo(path, ReadPackageIdentity(rootPath, path)))
+            .ToList();
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var current in packages)
+        {
+            foreach (var other in packages)
+            {
+                if (ReferenceEquals(current, other)) continue;
+                if (current.Identity.Family.Length < 4
+                    || !current.Identity.Family.Equals(other.Identity.Family, StringComparison.OrdinalIgnoreCase)
+                    || other.Identity.Version is null)
+                    continue;
+                if (current.Identity.Version is null || current.Identity.Version < other.Identity.Version)
+                    candidates.Add(current.Path);
+                if (candidates.Contains(current.Path)) break;
+            }
+        }
+
+        return candidates;
+    }
+
+    private static VersionedName ReadPackageIdentity(string rootPath, string packagePath)
+    {
+        var relativePath = Path.GetRelativePath(rootPath, packagePath);
+        var components = relativePath.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
             .Select(Path.GetFileNameWithoutExtension)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => CreateVersionedName(x!))
             .ToList();
-        if (packages.Count == 0 || latest.Count == 0) return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var packagePath in packages)
+        var fileName = components[^1];
+        if (fileName.Version is not null) return fileName;
+        for (var index = components.Count - 2; index >= 0; index--)
         {
-            var relativePath = Path.GetRelativePath(rootPath, packagePath);
-            var components = relativePath.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
-                .Select(Path.GetFileNameWithoutExtension)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Select(x => CreateVersionedName(x!))
-                .ToList();
-
-            var matched = latest.Where(newFile => components.Any(local => IsSameFamily(local, newFile))).ToList();
-            if (matched.Count == 0) continue;
-
-            var hasExactLatestName = matched.Any(newFile => components.Any(local =>
-                Normalize(local.Name).Equals(Normalize(newFile.Name), StringComparison.OrdinalIgnoreCase)));
-            if (hasExactLatestName) continue;
-
-            var hasOlderVersion = matched.Any(newFile => newFile.Version is not null && components.Any(local =>
-                IsSameFamily(local, newFile)
-                && local.Version is not null
-                && local.Version < newFile.Version));
-            var versionCouldNotBeCompared = matched.Any(newFile => components.Any(local =>
-                IsSameFamily(local, newFile)
-                && (local.Version is null || newFile.Version is null)));
-            if (hasOlderVersion || versionCouldNotBeCompared) candidates.Add(packagePath);
+            var directory = components[index];
+            if (directory.Version is null) continue;
+            if (directory.Family.Equals(fileName.Family, StringComparison.OrdinalIgnoreCase)
+                || directory.Family.Contains(fileName.Family, StringComparison.OrdinalIgnoreCase)
+                || fileName.Family.Contains(directory.Family, StringComparison.OrdinalIgnoreCase))
+                return new VersionedName(fileName.Family, directory.Version);
         }
-
-        // A single UnityPackage can be identified safely even when the downloadable ZIP and
-        // its extracted contents use unrelated names. Avoid this fallback for multi-package products.
-        if (candidates.Count == 0 && packages.Count == 1
-            && !latest.Any(newFile => Normalize(relativeName(packages[0])).Contains(Normalize(newFile.Name), StringComparison.OrdinalIgnoreCase)))
-            candidates.Add(packages[0]);
-
-        return candidates;
-
-        string relativeName(string path) => Path.GetRelativePath(rootPath, path);
+        return fileName;
     }
-
-    private static string GetFamily(string value) => Normalize(VersionSuffixRegex().Replace(value, string.Empty));
 
     private static VersionedName CreateVersionedName(string value)
     {
-        var withoutVersion = VersionSuffixRegex().Replace(value.Normalize(NormalizationForm.FormKC), string.Empty);
-        var tokens = Regex.Split(withoutVersion, @"[^\p{L}\p{N}]+", RegexOptions.CultureInvariant)
-            .Where(x => x.Length > 0)
-            .Select(x => x.ToLowerInvariant())
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return new VersionedName(value, GetFamily(value), TryReadVersion(value), tokens);
-    }
-
-    private static bool IsSameFamily(VersionedName local, VersionedName latest)
-    {
-        if (local.Family.Length >= 4 && local.Family.Equals(latest.Family, StringComparison.OrdinalIgnoreCase)) return true;
-        return local.Tokens.Count >= 2 && local.Tokens.All(latest.Tokens.Contains);
+        var normalized = value.Normalize(NormalizationForm.FormKC);
+        var withoutVersion = VersionSuffixRegex().Replace(normalized, string.Empty);
+        return new VersionedName(Normalize(withoutVersion), TryReadVersion(normalized));
     }
 
     private static Version? TryReadVersion(string value)
     {
-        var match = VersionTokenRegex().Match(value.Normalize(NormalizationForm.FormKC));
+        var match = VersionTokenRegex().Match(value);
         if (!match.Success) return null;
-        var parts = match.Groups[1].Value.Split(['.', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
+        var versionText = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
+        var parts = versionText.Split(['.', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0 || parts.Any(x => !int.TryParse(x, out _))) return null;
         var numbers = parts.Select(int.Parse).Concat(Enumerable.Repeat(0, 4)).Take(4).ToArray();
         return new Version(numbers[0], numbers[1], numbers[2], numbers[3]);
     }
 
     private static string Normalize(string value) => Regex.Replace(
-        value.Normalize(NormalizationForm.FormKC), @"[^\p{L}\p{N}]", string.Empty,
-        RegexOptions.CultureInvariant).ToLowerInvariant();
+        value, @"[^\p{L}\p{N}]", string.Empty, RegexOptions.CultureInvariant).ToLowerInvariant();
 
-    private sealed record VersionedName(string Name, string Family, Version? Version, IReadOnlySet<string> Tokens);
+    private sealed record PackageVersionInfo(string Path, VersionedName Identity);
+    private sealed record VersionedName(string Family, Version? Version);
 
-    [GeneratedRegex(@"(?:^|[\s_.-])(?:v(?:er(?:sion)?)?\.?\s*)?\d+(?:[._-]\d+){1,3}[a-z]?\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:^|[\s_.-])(?:(?:v(?:er(?:sion)?)?\.?\s*)\d+(?:[._-]\d+){0,3}|\d+(?:[._-]\d+){1,3})[a-z]?\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex VersionSuffixRegex();
 
-    [GeneratedRegex(@"(?:^|[\s_.-])(?:v(?:er(?:sion)?)?\.?\s*)?(\d+(?:[._-]\d+){1,3})(?:[a-z])?(?:$|[\s_.-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.RightToLeft)]
+    [GeneratedRegex(@"(?:^|[\s_.-])(?:(?:v(?:er(?:sion)?)?\.?\s*)(\d+(?:[._-]\d+){0,3})|(\d+(?:[._-]\d+){1,3}))(?:[a-z])?(?:$|[\s_.-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.RightToLeft)]
     private static partial Regex VersionTokenRegex();
 }

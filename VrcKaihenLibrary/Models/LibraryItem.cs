@@ -40,7 +40,6 @@ public sealed class LibraryItem : INotifyPropertyChanged
     public IReadOnlyList<string> DownloadedVariationNames { get; set; } = [];
     public bool HasBoothVariationRows { get; set; }
     public bool HasPurchasedVariationOrder { get; set; }
-    public IReadOnlyList<string> LatestDownloadableFileNames { get; set; } = [];
     public string? ThumbnailUrl { get; set; }
     public string FolderPath { get; set; } = string.Empty;
     public long? BoothItemId { get; set; }

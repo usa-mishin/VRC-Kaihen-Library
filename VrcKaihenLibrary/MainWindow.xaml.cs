@@ -642,7 +642,7 @@ public sealed partial class MainWindow : Window
         DownloadFileCategories.Clear();
         DownloadFileTotalCountText.Text = "検索中";
 
-        var files = await Task.Run(() => FindDownloadFiles(item.FolderPath, item.LatestDownloadableFileNames));
+        var files = await Task.Run(() => FindDownloadFiles(item.FolderPath));
         if (_isClosing || loadVersion != _unityPackageLoadVersion || _detailItem?.RegistrationId != item.RegistrationId) return;
 
         _downloadFiles = files;
@@ -669,7 +669,7 @@ public sealed partial class MainWindow : Window
         DownloadFileTotalCountText.Text = $"{files.Count}個";
     }
 
-    private static IReadOnlyList<DownloadFileEntry> FindDownloadFiles(string rootPath, IReadOnlyList<string>? latestDownloadableFileNames = null)
+    private static IReadOnlyList<DownloadFileEntry> FindDownloadFiles(string rootPath)
     {
         if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath)) return [];
         var paths = new List<string>();
@@ -695,10 +695,8 @@ public sealed partial class MainWindow : Window
 
         var duplicateNames = paths.GroupBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
             .Where(x => x.Count() > 1).Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var updateCandidates = DownloadUpdateCandidateService.FindUnityPackageCandidates(
-            rootPath,
-            paths.Where(path => Path.GetExtension(path).Equals(".unitypackage", StringComparison.OrdinalIgnoreCase)),
-            latestDownloadableFileNames ?? []);
+        var updateCandidates = DownloadUpdateCandidateService.FindUnityPackageCandidates(rootPath,
+            paths.Where(path => Path.GetExtension(path).Equals(".unitypackage", StringComparison.OrdinalIgnoreCase)));
         return paths.Select(path =>
             {
                 var relativeDirectory = Path.GetRelativePath(rootPath, Path.GetDirectoryName(path) ?? rootPath);
@@ -1522,7 +1520,6 @@ public sealed partial class MainWindow : Window
         target.DownloadedVariationNames = source.DownloadedVariationNames;
         target.HasBoothVariationRows = source.HasBoothVariationRows;
         target.HasPurchasedVariationOrder = source.HasPurchasedVariationOrder;
-        target.LatestDownloadableFileNames = source.LatestDownloadableFileNames;
         target.ThumbnailUrl = source.ThumbnailUrl; target.FolderPath = source.FolderPath; target.BoothItemId = source.BoothItemId;
         target.RegisteredAt = source.RegisteredAt; target.UpdatedAt = source.UpdatedAt; target.PublishedAt = source.PublishedAt;
         target.HasFileUpdate = source.HasFileUpdate;
