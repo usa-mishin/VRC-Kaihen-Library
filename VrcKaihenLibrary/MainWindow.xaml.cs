@@ -120,6 +120,7 @@ public sealed class AvatarSelectionOption : INotifyPropertyChanged
 
 public sealed partial class MainWindow : Window
 {
+    private enum OperationPopupKind { Progress, Success, Information, Error }
     private sealed record UnityEditorTarget(int ProcessId, IntPtr WindowHandle);
     private sealed record ImportSettingEditor(string Category, TextBox FolderBox, CheckBox RootCheckBox);
     private const uint GwHwndNext = 2;
@@ -157,6 +158,7 @@ public sealed partial class MainWindow : Window
     private Dictionary<string, CategoryImportSetting> _categoryImportSettings = new(StringComparer.Ordinal);
     private readonly List<ImportSettingEditor> _importSettingEditors = [];
     private bool _isApplyingSmartTitleSetting = true;
+    private int _operationPopupVersion;
 
     public ObservableCollection<LibraryItem> VisibleItems { get; } = [];
     public ObservableCollection<AvatarFilterOption> AvatarFilterOptions { get; } = [];
@@ -192,7 +194,7 @@ public sealed partial class MainWindow : Window
 
     private async Task LoadLibraryAsync()
     {
-        StatusText.Text = "BOOTH Library Manager と同期しています…";
+        ShowOperationPopup(OperationPopupKind.Progress, "ライブラリを同期中", "BOOTH Library Manager のデータを読み込んでいます…");
         try
         {
             var snapshot = await Task.Run(() => _reader.Read());
@@ -235,7 +237,7 @@ public sealed partial class MainWindow : Window
             PopulateCategories();
             ApplyFilter();
             _isApplyingSmartTitleSetting = false;
-            StatusText.Text = $"{_allItems.Count:N0} 件 · BLMスキーマ {snapshot.SchemaVersion} · {snapshot.ItemDirectory}";
+            ShowOperationPopup(OperationPopupKind.Success, "同期が完了しました", $"{_allItems.Count:N0}件の商品を読み込みました。", autoDismiss: true);
         }
         catch (Exception ex)
         {
@@ -245,7 +247,7 @@ public sealed partial class MainWindow : Window
             EmptyState.Visibility = Visibility.Visible;
             EmptyTitle.Text = "BOOTH Library Managerを読み込めませんでした";
             EmptyDescription.Text = ex.Message;
-            StatusText.Text = BoothLibraryReader.DefaultDatabasePath;
+            ShowOperationPopup(OperationPopupKind.Error, "ライブラリを読み込めませんでした", ex.Message);
             _isApplyingSmartTitleSetting = false;
         }
     }
@@ -621,7 +623,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"詳細パネルを表示できませんでした: {ex.Message}";
+            ShowOperationPopup(OperationPopupKind.Error, "詳細を表示できませんでした", ex.Message);
             Debug.WriteLine($"Detail panel error ({item.RegistrationId}): {ex}");
         }
     }
@@ -845,13 +847,11 @@ public sealed partial class MainWindow : Window
         };
         if (package is null || !File.Exists(package.FilePath)) return;
         var clickedItem = _detailItem;
-        UnityImportProgress.Value = 0;
-        UnityImportProgress.Visibility = Visibility.Visible;
         var importToRoot = ImportsToAssetsRoot(clickedItem);
         var importFolderName = GetImportFolderName(clickedItem.Category);
-        DuplicateStatusText.Text = importToRoot
+        ShowOperationPopup(OperationPopupKind.Progress, "Unityインポートを準備中", importToRoot
             ? "Unityパッケージを開いています…"
-            : $"Assets/{importFolderName} 配下へのインポートを準備しています…";
+            : $"Assets/{importFolderName} 配下へのインポートを準備しています…", 0);
         try
         {
             var unityTarget = FindActiveUnityEditor();
@@ -863,8 +863,7 @@ public sealed partial class MainWindow : Window
                 DispatcherQueue.TryEnqueue(() =>
                 {
                     if (_isClosing) return;
-                    UnityImportProgress.Value = progress.Percentage;
-                    DuplicateStatusText.Text = $"{progress.Percentage}%  {progress.Message}";
+                    UpdateOperationPopupProgress(progress.Percentage, progress.Message);
                 });
             }
             var importPackagePath = await Task.Run(() =>
@@ -873,13 +872,12 @@ public sealed partial class MainWindow : Window
             var projectPath = await _unityEditorBridgeService.RequestImportAsync(unityTarget.ProcessId, importPackagePath);
             if (_isClosing) return;
             SetForegroundWindow(unityTarget.WindowHandle);
-            UnityImportProgress.Value = 100;
-            DuplicateStatusText.Text = $"Unityへインポートを要求しました。初回はスクリプトのコンパイル後に開始します: {Path.GetFileName(projectPath)}";
+            ShowOperationPopup(OperationPopupKind.Success, "Unityへ送信しました", $"初回はスクリプトのコンパイル後に開始します: {Path.GetFileName(projectPath)}", 100, autoDismiss: true);
         }
         catch (Exception ex)
         {
             if (_isClosing) return;
-            DuplicateStatusText.Text = $"Unityインポートの準備に失敗しました: {ex.Message}";
+            ShowOperationPopup(OperationPopupKind.Error, "Unityインポートに失敗しました", ex.Message);
         }
     }
 
@@ -979,7 +977,6 @@ public sealed partial class MainWindow : Window
         DetailTagChips.ItemsSource = avatarProfile is null ? null : GetAvatarDetailTags(avatarProfile);
         DetailOpenBoothButton.IsEnabled = item.BoothUrl is not null;
         DetailThumbnail.Source = CreateImageSource(item.ThumbnailUrl);
-        DuplicateStatusText.Text = string.Empty;
     }
 
     private async void DetailDownloadedProducts_Click(object sender, RoutedEventArgs e)
@@ -1317,7 +1314,7 @@ public sealed partial class MainWindow : Window
         if (_detailItem is null) return;
         if (!Directory.Exists(_detailItem.FolderPath))
         {
-            StatusText.Text = $"フォルダーが見つかりません: {_detailItem.FolderPath}";
+            ShowOperationPopup(OperationPopupKind.Error, "フォルダーが見つかりません", _detailItem.FolderPath);
             return;
         }
         Process.Start(new ProcessStartInfo("explorer.exe", _detailItem.FolderPath) { UseShellExecute = true });
@@ -1448,7 +1445,7 @@ public sealed partial class MainWindow : Window
     {
         if (_detailItem is null) return;
         DetailOperationsFlyout.Hide();
-        DuplicateStatusText.Text = "BOOTHデータを再取得しています…";
+        ShowOperationPopup(OperationPopupKind.Progress, "商品データを更新中", "BOOTH Library Manager のデータを再取得しています…");
         try
         {
             var snapshot = await Task.Run(() => _reader.Read());
@@ -1466,12 +1463,12 @@ public sealed partial class MainWindow : Window
             PopulateAvatarFilters();
             PopulateShopFilters();
             UpdateDetailPanel();
-            DuplicateStatusText.Text = "BOOTHデータを再取得しました。";
+            ShowOperationPopup(OperationPopupKind.Success, "更新が完了しました", "商品データを再取得しました。", autoDismiss: true);
         }
         catch (Exception ex)
         {
             if (_isClosing) return;
-            DuplicateStatusText.Text = $"再読み込みに失敗しました: {ex.Message}";
+            ShowOperationPopup(OperationPopupKind.Error, "再読み込みに失敗しました", ex.Message);
         }
     }
 
@@ -1487,29 +1484,85 @@ public sealed partial class MainWindow : Window
         RefreshCompatibilityCounts();
         UpdateDetailPanel();
         ApplyFilter();
-        DuplicateStatusText.Text = "対応アバターの手動追加・除外と全アバター対応設定をリセットしました。";
+        ShowOperationPopup(OperationPopupKind.Success, "対応設定をリセットしました", "手動追加・除外と全アバター対応設定を初期化しました。", autoDismiss: true);
     }
 
     private async void CheckDuplicates_Click(object sender, RoutedEventArgs e)
     {
         if (_detailItem is null) return;
         DetailOperationsFlyout.Hide();
-        DuplicateStatusText.Text = "ダウンロードの重複を確認しています…";
+        ShowOperationPopup(OperationPopupKind.Progress, "重複を確認中", "ダウンロード済みファイルを調べています…");
         await CheckDuplicatesAsync(_detailItem);
     }
 
     private async Task CheckDuplicatesAsync(LibraryItem item)
     {
         var duplicates = await Task.Run(() => _duplicateDownloadService.FindDuplicateDownloads(item.FolderPath));
-        if (duplicates.Count == 0) { DuplicateStatusText.Text = "重複サフィックス付きのダウンロードはありません。"; return; }
+        if (duplicates.Count == 0) { ShowOperationPopup(OperationPopupKind.Information, "重複はありません", "重複サフィックス付きのダウンロードは見つかりませんでした。", autoDismiss: true); return; }
         var names = string.Join("\n", duplicates.Select(x => $"• 削除: {Path.GetFileName(x.DeletePath)}").Distinct());
         var kept = string.Join("\n", duplicates.GroupBy(x => x.KeepPath).Select(x => $"• 保持: {Path.GetFileName(x.Key)} → {Path.GetFileName(x.First().TargetPath)}"));
         var dialog = new ContentDialog { XamlRoot = RootLayout.XamlRoot, Title = $"重複ダウンロードが {duplicates.Count} 件あります", Content = $"最新のフォルダーだけを残し、重複サフィックスを外します。古いフォルダーはごみ箱へ移動します。\n\n{kept}\n{names}", PrimaryButtonText = "整理する", CloseButtonText = "キャンセル", DefaultButton = ContentDialogButton.Close };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
             await Task.Run(() => _duplicateDownloadService.KeepLatestAndNormalizeName(duplicates));
-            DuplicateStatusText.Text = $"最新のみを残し、古い重複{duplicates.Count}件をごみ箱へ移動しました。";
+            ShowOperationPopup(OperationPopupKind.Success, "重複を整理しました", $"最新のみを残し、古い重複{duplicates.Count}件をごみ箱へ移動しました。", autoDismiss: true);
         }
+        else ShowOperationPopup(OperationPopupKind.Information, "整理をキャンセルしました", "ファイルは変更されていません。", autoDismiss: true);
+    }
+
+    private void ShowOperationPopup(OperationPopupKind kind, string title, string message, double? progress = null, bool autoDismiss = false)
+    {
+        if (_isClosing) return;
+        var version = ++_operationPopupVersion;
+        var (glyph, accent, pale) = kind switch
+        {
+            OperationPopupKind.Success => ("\uE73E", Windows.UI.Color.FromArgb(255, 32, 155, 96), Windows.UI.Color.FromArgb(24, 32, 155, 96)),
+            OperationPopupKind.Information => ("\uE946", Windows.UI.Color.FromArgb(255, 47, 126, 213), Windows.UI.Color.FromArgb(24, 47, 126, 213)),
+            OperationPopupKind.Error => ("\uEA39", Windows.UI.Color.FromArgb(255, 208, 67, 74), Windows.UI.Color.FromArgb(28, 208, 67, 74)),
+            _ => ("\uE895", Windows.UI.Color.FromArgb(255, 91, 105, 166), Windows.UI.Color.FromArgb(24, 91, 105, 166))
+        };
+        OperationPopupIcon.Glyph = glyph;
+        OperationPopupIcon.FontSize = kind == OperationPopupKind.Error ? 34 : 30;
+        OperationPopupIcon.Foreground = new SolidColorBrush(accent);
+        OperationPopupIconBackground.Background = new SolidColorBrush(pale);
+        OperationPopupAccent.Background = new SolidColorBrush(accent);
+        OperationPopupTitle.Text = title;
+        OperationPopupMessage.Text = message;
+        OperationPopupProgress.Visibility = kind == OperationPopupKind.Progress ? Visibility.Visible : Visibility.Collapsed;
+        OperationPopupProgress.IsIndeterminate = kind == OperationPopupKind.Progress && progress is null;
+        if (progress is not null) OperationPopupProgress.Value = progress.Value;
+        OperationPopup.Visibility = Visibility.Visible;
+        OpenOperationPopupStoryboard.Stop();
+        CloseOperationPopupStoryboard.Stop();
+        OpenOperationPopupStoryboard.Begin();
+        if (autoDismiss) _ = AutoDismissOperationPopupAsync(version);
+    }
+
+    private void UpdateOperationPopupProgress(double progress, string message)
+    {
+        OperationPopupMessage.Text = $"{progress:0}%  {message}";
+        OperationPopupProgress.IsIndeterminate = false;
+        OperationPopupProgress.Value = progress;
+    }
+
+    private async Task AutoDismissOperationPopupAsync(int version)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(5));
+        if (!_isClosing && version == _operationPopupVersion) await HideOperationPopupAsync(version);
+    }
+
+    private async Task HideOperationPopupAsync(int version)
+    {
+        if (OperationPopup.Visibility != Visibility.Visible) return;
+        CloseOperationPopupStoryboard.Begin();
+        await Task.Delay(180);
+        if (!_isClosing && version == _operationPopupVersion) OperationPopup.Visibility = Visibility.Collapsed;
+    }
+
+    private async void OperationPopupClose_Click(object sender, RoutedEventArgs e)
+    {
+        var version = ++_operationPopupVersion;
+        await HideOperationPopupAsync(version);
     }
 
     private static void CopySourceInformation(LibraryItem source, LibraryItem target)
