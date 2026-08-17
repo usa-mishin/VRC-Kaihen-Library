@@ -187,9 +187,26 @@ public sealed class UserMetadataStore
 
     public void SyncAvatarDefaults(IEnumerable<LibraryItem> items)
     {
+        var avatarItems = items.Where(x => x.Category == AssetCategories.Avatar).ToList();
+        var activeAvatarIds = avatarItems.Select(x => x.RegistrationId).ToHashSet(StringComparer.Ordinal);
         using var connection = Open();
         using var transaction = connection.BeginTransaction();
-        foreach (var item in items.Where(x => x.Category == AssetCategories.Avatar))
+        using (var staleProfiles = connection.CreateCommand())
+        {
+            staleProfiles.Transaction = transaction;
+            staleProfiles.CommandText = "SELECT registration_id FROM avatar_profiles";
+            using var reader = staleProfiles.ExecuteReader();
+            var staleIds = new List<string>();
+            while (reader.Read())
+            {
+                var registrationId = reader.GetString(0);
+                if (!activeAvatarIds.Contains(registrationId)) staleIds.Add(registrationId);
+            }
+            reader.Close();
+            foreach (var staleId in staleIds) DeleteAvatarProfile(connection, transaction, staleId);
+        }
+
+        foreach (var item in avatarItems)
         {
             using var profile = connection.CreateCommand();
             profile.Transaction = transaction;
@@ -231,6 +248,24 @@ public sealed class UserMetadataStore
             }
         }
         transaction.Commit();
+    }
+
+    private static void DeleteAvatarProfile(SqliteConnection connection, SqliteTransaction transaction, string registrationId)
+    {
+        foreach (var sql in new[]
+        {
+            "DELETE FROM item_compatibility_overrides WHERE avatar_registration_id=$id",
+            "DELETE FROM avatar_shared_body_relations WHERE avatar_registration_id=$id OR related_avatar_registration_id=$id",
+            "DELETE FROM avatar_identifiers WHERE registration_id=$id",
+            "DELETE FROM avatar_profiles WHERE registration_id=$id"
+        })
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("$id", registrationId);
+            command.ExecuteNonQuery();
+        }
     }
 
     public IReadOnlyList<AvatarProfile> ReadAvatarProfiles()

@@ -282,6 +282,7 @@ public sealed partial class MainWindow : Window
             AvatarFilterOptions.Add(new AvatarFilterOption(profile.RegistrationId, avatarItem?.DisplayName ?? profile.PrimaryIdentifier, profile.PrimaryIdentifier, avatarItem?.ThumbnailUrl));
         }
         var selected = AvatarFilterOptions.FirstOrDefault(x => x.RegistrationId == _selectedAvatarFilterId) ?? AvatarFilterOptions[0];
+        _selectedAvatarFilterId = selected.RegistrationId;
         AvatarFilterButtonText.Text = selected.PrimaryIdentifier;
         ApplyAvatarFilterOptionSearch();
     }
@@ -1184,6 +1185,8 @@ public sealed partial class MainWindow : Window
     {
         if (_detailItem is null) return;
         _detailItem.Category = DetailCategory.SelectedItem as string ?? AssetCategories.Unclassified;
+        var stoppedBeingAvatar = _categoryAtEditStart == AssetCategories.Avatar
+            && _detailItem.Category != AssetCategories.Avatar;
         var categoryUsesRoot = GetCategoryImportSetting(_detailItem.Category).ImportToAssetsRoot;
         _detailItem.ImportToAssetsRoot = _detailItem.Category == AssetCategories.Avatar
             || (!categoryUsesRoot && DetailImportRoot.IsChecked == true);
@@ -1198,6 +1201,15 @@ public sealed partial class MainWindow : Window
             _detailItem.SupportsAllAvatars = IsCompatibilityCategory(_detailItem.Category) && AllAvatarsCheckBox.IsChecked == true;
         }
         await Task.Run(() => _metadataStore.Save(_detailItem));
+        if (stoppedBeingAvatar)
+        {
+            await Task.Run(() => _metadataStore.SyncAvatarDefaults(_allItems));
+            _avatarProfiles = await Task.Run(_metadataStore.ReadAvatarProfiles);
+            _sharedBodyRelations = await Task.Run(_metadataStore.ReadSharedBodyRelations);
+            _compatibilityFilterCache.Clear();
+            ApplyTitleCleanupIdentifiers();
+            PopulateAvatarFilters();
+        }
         if (_detailItem.Category == AssetCategories.Avatar && _avatarProfiles.FirstOrDefault(x => x.RegistrationId == _detailItem.RegistrationId) is { } avatar)
         {
             var primary = AvatarPrimaryIdentifierBox.Text.Trim();
