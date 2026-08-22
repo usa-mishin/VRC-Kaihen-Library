@@ -465,8 +465,8 @@
         <Border x:Name="OperationPopup" Grid.RowSpan="4" Grid.ColumnSpan="3"
                 Width="430" MinHeight="112" Margin="24" Padding="0"
                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16"
+                Canvas.ZIndex="1000" Background="#FA25272D"
+                BorderBrush="#38FFFFFF" BorderThickness="1" CornerRadius="16"
                 Opacity="0" Visibility="Collapsed">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="6"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -476,10 +476,10 @@
                     <FontIcon x:Name="OperationPopupIcon" Glyph="&#xE895;" FontSize="30" Foreground="#FF5B69A6" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <StackPanel Grid.Column="2" Margin="0,17,8,15" Spacing="5" VerticalAlignment="Center">
-                    <TextBlock x:Name="OperationPopupTitle" Text="処理しています" FontFamily="Segoe UI Variable Display" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="OperationPopupMessage" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" FontSize="12" Opacity="0.76"/>
+                    <TextBlock x:Name="OperationPopupTitle" Text="処理しています" Foreground="White" FontFamily="Segoe UI Variable Display" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="OperationPopupMessage" Foreground="#E6FFFFFF" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" FontSize="12"/>
                 </StackPanel>
-                <Button Grid.Column="3" Click="OperationPopupClose_Click" Width="34" Height="34" Margin="2,8,8,0" Padding="0" Background="Transparent" BorderThickness="0" VerticalAlignment="Top" ToolTipService.ToolTip="閉じる">
+                <Button Grid.Column="3" Click="OperationPopupClose_Click" Width="34" Height="34" Margin="2,8,8,0" Padding="0" Foreground="White" Background="Transparent" BorderThickness="0" VerticalAlignment="Top" ToolTipService.ToolTip="閉じる">
                     <FontIcon Glyph="&#xE711;" FontSize="12"/>
                 </Button>
                 <ProgressBar x:Name="OperationPopupProgress" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Height="4" Margin="16,0,16,12" Minimum="0" Maximum="100" IsIndeterminate="True"/>

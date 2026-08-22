@@ -871,10 +871,10 @@ public sealed partial class MainWindow : Window
             var importPackagePath = await Task.Run(() =>
                 _unityPackageImportService.PrepareForImport(clickedItem, package.FilePath, importToRoot ? null : importFolderName, ReportProgress));
             if (_isClosing) return;
-            var projectPath = await _unityEditorBridgeService.RequestImportAsync(unityTarget.ProcessId, importPackagePath);
+            await _unityEditorBridgeService.RequestImportAsync(unityTarget.ProcessId, importPackagePath);
             if (_isClosing) return;
             SetForegroundWindow(unityTarget.WindowHandle);
-            ShowOperationPopup(OperationPopupKind.Success, "Unityへ送信しました", $"初回はスクリプトのコンパイル後に開始します: {Path.GetFileName(projectPath)}", 100, autoDismiss: true);
+            ShowOperationPopup(OperationPopupKind.Success, "Unityへ送信しました", "初回はスクリプトのコンパイル後にインポートを開始します。", 100, autoDismiss: true);
         }
         catch (Exception ex)
         {
@@ -1528,6 +1528,7 @@ public sealed partial class MainWindow : Window
         OperationPopupIcon.Foreground = new SolidColorBrush(accent);
         OperationPopupIconBackground.Background = new SolidColorBrush(pale);
         OperationPopupAccent.Background = new SolidColorBrush(accent);
+        OperationPopupProgress.Foreground = new SolidColorBrush(accent);
         OperationPopupTitle.Text = title;
         OperationPopupMessage.Text = message;
         OperationPopupProgress.Visibility = kind == OperationPopupKind.Progress ? Visibility.Visible : Visibility.Collapsed;
@@ -1555,7 +1556,7 @@ public sealed partial class MainWindow : Window
     {
         if (OperationPopup.Visibility != Visibility.Visible) return;
         AnimateOperationPopup(show: false);
-        await Task.Delay(190);
+        await Task.Delay(300);
         if (!_isClosing && version == _operationPopupVersion) OperationPopup.Visibility = Visibility.Collapsed;
     }
 
@@ -1563,20 +1564,32 @@ public sealed partial class MainWindow : Window
     {
         var visual = ElementCompositionPreview.GetElementVisual(OperationPopup);
         var compositor = visual.Compositor;
-        var easing = compositor.CreateCubicBezierEasingFunction(show
-            ? new Vector2(0.16f, 1f)
-            : new Vector2(0.55f, 0f), show
-            ? new Vector2(0.3f, 1f)
-            : new Vector2(1f, 0.45f));
-        var offset = compositor.CreateVector3KeyFrameAnimation();
-        offset.Duration = TimeSpan.FromMilliseconds(show ? 280 : 180);
-        offset.InsertKeyFrame(0, show ? new Vector3(0, 32, 0) : Vector3.Zero);
-        offset.InsertKeyFrame(1, show ? Vector3.Zero : new Vector3(0, 20, 0), easing);
+        ElementCompositionPreview.SetIsTranslationEnabled(OperationPopup, true);
+        visual.StopAnimation("Translation");
+        visual.StopAnimation("Opacity");
+
+        var quickOut = compositor.CreateCubicBezierEasingFunction(new Vector2(0.12f, 0.72f), new Vector2(0.22f, 1f));
+        var settle = compositor.CreateCubicBezierEasingFunction(new Vector2(0.34f, 1.56f), new Vector2(0.64f, 1f));
+        var translation = compositor.CreateVector3KeyFrameAnimation();
+        translation.Duration = TimeSpan.FromMilliseconds(show ? 440 : 280);
+        if (show)
+        {
+            translation.InsertKeyFrame(0, new Vector3(480, 0, 0));
+            translation.InsertKeyFrame(0.68f, new Vector3(-18, 0, 0), quickOut);
+            translation.InsertKeyFrame(0.86f, new Vector3(7, 0, 0), settle);
+            translation.InsertKeyFrame(1, Vector3.Zero, settle);
+        }
+        else
+        {
+            translation.InsertKeyFrame(0, Vector3.Zero);
+            translation.InsertKeyFrame(0.18f, new Vector3(-12, 0, 0), settle);
+            translation.InsertKeyFrame(1, new Vector3(480, 0, 0), quickOut);
+        }
         var opacity = compositor.CreateScalarKeyFrameAnimation();
-        opacity.Duration = TimeSpan.FromMilliseconds(show ? 200 : 150);
+        opacity.Duration = TimeSpan.FromMilliseconds(show ? 230 : 220);
         opacity.InsertKeyFrame(0, show ? 0 : 1);
-        opacity.InsertKeyFrame(1, show ? 1 : 0, easing);
-        visual.StartAnimation("Offset", offset);
+        opacity.InsertKeyFrame(1, show ? 1 : 0, quickOut);
+        visual.StartAnimation("Translation", translation);
         visual.StartAnimation("Opacity", opacity);
     }
 
