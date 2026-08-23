@@ -3,9 +3,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:VrcKaihenLibrary.Controls"
-    Title="VRC改変ライブラリ">
+    Title="VRC改変ライブラリ（BLM拡張）">
     <Window.SystemBackdrop><MicaBackdrop /></Window.SystemBackdrop>
-    <Grid x:Name="RootLayout">
+    <Grid x:Name="RootLayout" SizeChanged="RootLayout_SizeChanged">
         <Grid.Resources>
             <Style x:Key="CompactGridViewItemStyle" TargetType="GridViewItem">
                 <Setter Property="Margin" Value="0"/>
@@ -99,8 +99,17 @@
 
         <Border Grid.RowSpan="4" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
             <StackPanel Padding="0,18,0,0" Spacing="0">
-                <Button x:Name="LibraryMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="LibraryMenu_Click" Background="#FFD0575C" Foreground="White">
-                    <StackPanel Spacing="5"><FontIcon Glyph="&#xE8A9;" FontSize="23"/><TextBlock Text="一覧" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
+                <Button x:Name="AvatarMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="AvatarMenu_Click" Background="#FFD0575C" Foreground="White">
+                    <StackPanel Spacing="5"><FontIcon Glyph="&#xE77B;" FontSize="23"/><TextBlock Text="アバター" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
+                </Button>
+                <Button x:Name="LibraryMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="LibraryMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                    <StackPanel Spacing="5"><FontIcon Glyph="&#xE8A9;" FontSize="23"/><TextBlock Text="改変アイテム" FontSize="11" HorizontalAlignment="Center"/></StackPanel>
+                </Button>
+                <Button x:Name="ShopMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="ShopMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                    <StackPanel Spacing="5"><FontIcon Glyph="&#xE719;" FontSize="23"/><TextBlock Text="ショップ" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
+                </Button>
+                <Button x:Name="BoothTagsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="BoothTagsMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                    <StackPanel Spacing="5"><FontIcon Glyph="&#xE8EC;" FontSize="23"/><TextBlock Text="BOOTHタグ" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
                 </Button>
                 <Button x:Name="SettingsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="SettingsMenu_Click" Background="Transparent" Foreground="#FFD0575C">
                     <StackPanel Spacing="5"><FontIcon Glyph="&#xE713;" FontSize="23"/><TextBlock Text="設定" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
@@ -108,23 +117,19 @@
             </StackPanel>
         </Border>
 
-        <Grid x:Name="LibraryHeader" Grid.Column="1" Padding="24,20,24,12" ColumnSpacing="10" RowSpacing="10">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="270"/><ColumnDefinition Width="180"/><ColumnDefinition Width="180"/><ColumnDefinition Width="160"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <StackPanel Grid.ColumnSpan="6" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Image Source="ms-appx:///Assets/Square44x44Logo.scale-200.png" Width="40" Height="40" Stretch="Uniform"/>
-                <TextBlock x:Name="LibraryTitle"
-                           Text="VRC改変ライブラリ"
-                           FontFamily="Segoe UI Variable Display"
-                           FontSize="28"
-                           FontWeight="SemiBold"
-                           CharacterSpacing="-15"
-                           Foreground="#FF30323A"
-                           TextWrapping="NoWrap"
-                           VerticalAlignment="Center"/>
+        <Grid x:Name="LibraryHeader" Grid.Column="1" Visibility="Collapsed" Padding="24,20,24,12" ColumnSpacing="10" RowSpacing="10">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="160"/><ColumnDefinition Width="160"/><ColumnDefinition Width="160"/><ColumnDefinition Width="150"/><ColumnDefinition Width="140"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <StackPanel x:Name="LibraryHeading" Grid.ColumnSpan="7" Spacing="3">
+                <TextBlock x:Name="LibraryTitle" Text="改変アイテム" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="改変用アイテム（衣装・髪型・テクスチャ等）の一覧です。クリックで詳細を表示します。" Opacity="0.7" TextWrapping="Wrap"/>
             </StackPanel>
+            <Button x:Name="RefreshLibraryButton" Grid.Column="7" Click="Refresh_Click" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel>
+            </Button>
             <TextBlock x:Name="StatusText" Visibility="Collapsed"/>
-            <AutoSuggestBox x:Name="SearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="商品名、ショップ名、タグを検索" TextChanged="SearchBox_TextChanged" QueryIcon="Find" VerticalAlignment="Center"/>
+            <Button x:Name="CompactFiltersButton" Grid.Row="1" Grid.ColumnSpan="3" Visibility="Collapsed" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE71C;"/><TextBlock Text="検索・フィルタ"/></StackPanel><Button.Flyout><Flyout Placement="BottomEdgeAlignedLeft"><StackPanel Width="360" Spacing="10"><TextBlock Text="検索・フィルタ" FontWeight="SemiBold"/><AutoSuggestBox x:Name="CompactSearchBox" PlaceholderText="商品名、タグを検索" QueryIcon="Find" TextChanged="CompactSearchBox_TextChanged"/><ComboBox x:Name="CompactAvatarFilterBox" Header="対応アバター" ItemsSource="{x:Bind AvatarFilterOptions}" DisplayMemberPath="DisplayName" SelectionChanged="CompactAvatarFilterBox_SelectionChanged" HorizontalAlignment="Stretch"/><ComboBox x:Name="CompactShopFilterBox" Header="ショップ" ItemsSource="{x:Bind ShopFilterOptions}" DisplayMemberPath="DisplayName" SelectionChanged="CompactShopFilterBox_SelectionChanged" HorizontalAlignment="Stretch"/><ComboBox x:Name="CompactBoothTagFilterBox" Header="BOOTHタグ" ItemsSource="{x:Bind BoothTagFilterOptions}" DisplayMemberPath="Name" SelectionChanged="CompactBoothTagFilterBox_SelectionChanged" HorizontalAlignment="Stretch"/><CheckBox x:Name="CompactFreeDownloadOnlyCheckBox" Content="無料/ギフトのみ" Checked="CompactFreeDownloadOnlyCheckBox_Changed" Unchecked="CompactFreeDownloadOnlyCheckBox_Changed"/><CheckBox x:Name="CompactFileUpdateOnlyCheckBox" Content="更新ありのみ" Checked="CompactFileUpdateOnlyCheckBox_Changed" Unchecked="CompactFileUpdateOnlyCheckBox_Changed"/><Button Click="ResetFilters_Click" HorizontalAlignment="Left" Background="Transparent" BorderThickness="0"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE711;"/><TextBlock Text="フィルタをクリア"/></StackPanel></Button></StackPanel></Flyout></Button.Flyout></Button>
+            <AutoSuggestBox x:Name="SearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="商品名、タグを検索" TextChanged="SearchBox_TextChanged" QueryIcon="Find" VerticalAlignment="Center"/>
             <Button x:Name="AvatarFilterButton" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Center">
                 <Grid><TextBlock x:Name="AvatarFilterButtonText" Text="すべての対応アバター" TextTrimming="CharacterEllipsis"/><FontIcon Glyph="&#xE70D;" HorizontalAlignment="Right"/></Grid>
                 <Button.Flyout>
@@ -157,19 +162,20 @@
                     </Flyout>
                 </Button.Flyout>
             </Button>
-            <ComboBox x:Name="PurchasedPackFilterBox" Grid.Row="1" Grid.Column="3" SelectedIndex="0" SelectionChanged="PurchasedPackFilterBox_SelectionChanged" HorizontalAlignment="Stretch" VerticalAlignment="Center">
-                <x:String>すべての取得形態</x:String>
-                <x:String>フルパック</x:String>
-                <x:String>単体購入</x:String>
-                <x:String>無料/ギフト</x:String>
-            </ComboBox>
-            <Button x:Name="ResetFiltersButton" Grid.Row="1" Grid.Column="4" Click="ResetFilters_Click" VerticalAlignment="Center" ToolTipService.ToolTip="フィルタをクリア">
+            <Button x:Name="BoothTagFilterButton" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Center">
+                <Grid><TextBlock x:Name="BoothTagFilterButtonText" Text="タグ指定なし" TextTrimming="CharacterEllipsis"/><FontIcon Glyph="&#xE70D;" HorizontalAlignment="Right"/></Grid>
+                <Button.Flyout><Flyout x:Name="BoothTagFilterFlyout" Placement="BottomEdgeAlignedRight"><Grid Width="360" Height="430" RowSpacing="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="BOOTHタグを選択" FontWeight="SemiBold"/><TextBox x:Name="BoothTagFilterSearchBox" Grid.Row="1" PlaceholderText="タグを検索" TextChanged="BoothTagFilterSearchBox_TextChanged"/><ListView Grid.Row="2" ItemsSource="{x:Bind VisibleBoothTagFilterOptions}" IsItemClickEnabled="True" ItemClick="BoothTagFilterList_ItemClick" SelectionMode="None"><ListView.ItemTemplate><DataTemplate><Grid Padding="10,8" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Text="{Binding CountText}" Opacity="0.65"/></Grid></DataTemplate></ListView.ItemTemplate></ListView></Grid></Flyout></Button.Flyout>
+            </Button>
+            <CheckBox x:Name="FreeDownloadOnlyCheckBox" Grid.Row="1" Grid.Column="4" Content="無料/ギフトのみ" Checked="FreeDownloadOnlyCheckBox_Changed" Unchecked="FreeDownloadOnlyCheckBox_Changed" VerticalAlignment="Center"/>
+            <CheckBox x:Name="FileUpdateOnlyCheckBox" Grid.Row="1" Grid.Column="5" Content="更新ありのみ" Checked="FileUpdateOnlyCheckBox_Changed" Unchecked="FileUpdateOnlyCheckBox_Changed" VerticalAlignment="Center"/>
+            <Button x:Name="ResetFiltersButton" Grid.Row="1" Grid.Column="6" Click="ResetFilters_Click" VerticalAlignment="Center" ToolTipService.ToolTip="フィルタをクリア" Background="Transparent" BorderThickness="0" Opacity="0.68">
                 <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE711;"/><TextBlock Text="フィルタをクリア"/></StackPanel>
             </Button>
         </Grid>
 
-        <Grid x:Name="LibraryToolbar" Grid.Column="1" Grid.Row="1" Padding="24,0,24,12" ColumnSpacing="12">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Grid x:Name="LibraryToolbar" Grid.Column="1" Grid.Row="1" Visibility="Collapsed" Padding="24,0,24,10" ColumnSpacing="12" RowSpacing="0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="3"/></Grid.RowDefinitions>
             <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="CategoryTabs" Orientation="Horizontal" Spacing="4"/>
             </ScrollViewer>
@@ -190,12 +196,10 @@
                     </Flyout>
                 </controls:HandCursorButton.Flyout>
             </controls:HandCursorButton>
-            <Button x:Name="RefreshLibraryButton" Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="再読み込み"/></StackPanel>
-            </Button>
+            <Border x:Name="CategorySelectionLine" Grid.Row="1" Grid.ColumnSpan="2" Height="3" CornerRadius="1.5" HorizontalAlignment="Stretch"/>
         </Grid>
 
-        <Grid x:Name="LibraryContent" Grid.Column="1" Grid.Row="2">
+        <Grid x:Name="LibraryContent" Grid.Column="1" Grid.Row="2" Visibility="Collapsed">
             <GridView x:Name="ItemsGrid" Margin="16,0,16,16" Padding="0" ItemsSource="{x:Bind VisibleItems}" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}" IsItemClickEnabled="True" ItemClick="ItemsGrid_ItemClick" SelectionMode="None" SizeChanged="ItemsGrid_SizeChanged">
                 <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
                 <GridView.ItemTemplate>
@@ -236,7 +240,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid x:Name="LibraryPager" Grid.Column="1" Grid.Row="3" Padding="24,4,24,16" ColumnSpacing="12">
+        <Grid x:Name="LibraryPager" Grid.Column="1" Grid.Row="3" Visibility="Collapsed" Padding="24,4,24,16" ColumnSpacing="12">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock Text="1ページの表示数" VerticalAlignment="Center" Opacity="0.7"/>
@@ -250,6 +254,61 @@
                 <Button x:Name="NextPageButton" Click="NextPage_Click" ToolTipService.ToolTip="次のページ"><FontIcon Glyph="&#xE76C;"/></Button>
             </StackPanel>
             <TextBlock x:Name="ResultRangeText" Grid.Column="2" VerticalAlignment="Center" Opacity="0.7"/>
+        </Grid>
+
+        <Grid x:Name="AvatarPage" Grid.Column="1" Grid.RowSpan="4" Padding="24,20,24,16">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <StackPanel Grid.ColumnSpan="3" Spacing="3">
+                    <TextBlock Text="アバター" Style="{StaticResource TitleTextBlockStyle}"/>
+                    <TextBlock Text="ダウンロード済のアバターと手動登録した未購入アバターの一覧です。クリックで詳細を表示します。" Opacity="0.7" TextWrapping="Wrap"/>
+                </StackPanel>
+                <ComboBox x:Name="AvatarPurchaseFilterBox" Grid.Row="1" Grid.Column="0" SelectedIndex="0" SelectionChanged="AvatarPurchaseFilterBox_SelectionChanged" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                    <x:String>すべてのアバター</x:String><x:String>購入済み</x:String><x:String>未購入</x:String>
+                </ComboBox>
+                <ComboBox x:Name="AvatarSortBox" Grid.Row="1" Grid.Column="1" SelectedIndex="4" SelectionChanged="AvatarSortBox_SelectionChanged" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                    <x:String>商品名（昇順）</x:String><x:String>商品名（降順）</x:String><x:String>ショップ名（昇順）</x:String><x:String>ショップ名（降順）</x:String><x:String>登録日時（新しい順）</x:String><x:String>登録日時（古い順）</x:String><x:String>更新日時（新しい順）</x:String><x:String>更新日時（古い順）</x:String>
+                </ComboBox>
+                <Button Grid.Column="3" Click="AddUnpurchasedAvatar_Click" VerticalAlignment="Top">
+                    <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE710;"/><TextBlock Text="未購入アバター追加"/></StackPanel>
+                </Button>
+                <Button Grid.Column="4" Click="Refresh_Click" VerticalAlignment="Top">
+                    <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel>
+                </Button>
+            </Grid>
+            <GridView x:Name="AvatarGrid" Grid.Row="1" Margin="-8,18,-8,0" ItemsSource="{x:Bind VisibleAvatarCards}" IsItemClickEnabled="True" ItemClick="AvatarGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}">
+                <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="0"/></ItemsPanelTemplate></GridView.ItemsPanel>
+                <GridView.ItemTemplate><DataTemplate><Border Width="210" Height="280" Margin="7" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel><Border Height="210" CornerRadius="10,10,0,0" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="48" Opacity="0.2"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/><StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" Spacing="5"><Border HorizontalAlignment="Right" Padding="9,4" CornerRadius="11" Background="#FFD0575C" Visibility="{Binding UnpurchasedBadgeVisibility}"><TextBlock Text="未購入" Foreground="White" FontSize="11" FontWeight="SemiBold"/></Border><Border HorizontalAlignment="Right" Padding="9,4" CornerRadius="11" Background="#FFD0575C" Visibility="{Binding FileUpdateBadgeVisibility}"><StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE895;" Foreground="White" FontSize="11"/><TextBlock Text="更新あり" Foreground="White" FontSize="11" FontWeight="SemiBold"/></StackPanel></Border></StackPanel></Grid></Border><StackPanel Padding="11,8" Spacing="3"><TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ShopName}" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis"/></StackPanel></StackPanel></Border></DataTemplate></GridView.ItemTemplate>
+            </GridView>
+        </Grid>
+
+        <Grid x:Name="ShopPage" Grid.Column="1" Grid.RowSpan="4" Visibility="Collapsed" Padding="24,20,24,16">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><StackPanel Grid.ColumnSpan="2" Spacing="3"><TextBlock Text="ショップ" Style="{StaticResource TitleTextBlockStyle}"/><TextBlock Text="ダウンロード済アイテムのショップ一覧です。ショップをクリックすると改変アイテムをショップで絞り込んで表示します。" Opacity="0.7" TextWrapping="Wrap"/></StackPanel>
+                <AutoSuggestBox x:Name="ShopPageSearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="ショップ名を検索" QueryIcon="Find" TextChanged="ShopPageSearchBox_TextChanged" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Top"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel></Button>
+            </Grid>
+            <GridView Grid.Row="1" Margin="-8,18,-8,0" ItemsSource="{x:Bind VisibleShopCards}" IsItemClickEnabled="True" ItemClick="ShopGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}">
+                <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
+                <GridView.ItemTemplate><DataTemplate><Border Width="260" Height="84" Margin="7" Padding="11" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Orientation="Horizontal" Spacing="12"><Border Width="60" Height="60" CornerRadius="8" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE719;" FontSize="24" Opacity="0.22"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/></Grid></Border><TextBlock Text="{Binding DisplayName}" Width="165" VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/></StackPanel></Border></DataTemplate></GridView.ItemTemplate>
+            </GridView>
+        </Grid>
+
+        <Grid x:Name="BoothTagsPage" Grid.Column="1" Grid.RowSpan="4" Visibility="Collapsed" Padding="24,20,24,16">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><StackPanel Grid.ColumnSpan="2" Spacing="3"><TextBlock Text="BOOTHタグ" Style="{StaticResource TitleTextBlockStyle}"/><TextBlock Text="全改変アイテムに設定されているBOOTHタグと該当商品件数の一覧です。" Opacity="0.7" TextWrapping="Wrap"/></StackPanel>
+                <AutoSuggestBox x:Name="BoothTagSearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="タグ名を検索" QueryIcon="Find" TextChanged="BoothTagSearchBox_TextChanged" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Top"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel></Button>
+            </Grid>
+            <GridView Grid.Row="1" Margin="-8,18,-8,0" ItemsSource="{x:Bind VisibleBoothTags}" IsItemClickEnabled="True" ItemClick="BoothTagGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}">
+                <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
+                <GridView.ItemTemplate><DataTemplate><Border Width="250" Height="68" Margin="7" Padding="14,10" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><FontIcon Glyph="&#xE8EC;" Foreground="#FFD0575C" FontSize="16"/><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="170"/></StackPanel><Border Grid.Column="1" Padding="9,4" CornerRadius="11" Background="#1FD0575C" VerticalAlignment="Center"><TextBlock Text="{Binding CountText}" Foreground="#FFD0575C" FontSize="11" FontWeight="SemiBold"/></Border></Grid></Border></DataTemplate></GridView.ItemTemplate>
+            </GridView>
         </Grid>
 
         <Grid x:Name="SettingsPage" Grid.Column="1" Grid.RowSpan="4" Visibility="Collapsed" Padding="28,24">
@@ -282,9 +341,35 @@
             </ScrollViewer>
         </Grid>
 
+        <ContentDialog x:Name="UnpurchasedAvatarDialog" Grid.RowSpan="4" Grid.ColumnSpan="3" Title="未購入アバターを追加" PrimaryButtonText="保存" CloseButtonText="キャンセル" DefaultButton="Primary" PrimaryButtonClick="UnpurchasedAvatarDialog_PrimaryButtonClick">
+            <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Enabled">
+            <StackPanel Width="460" Spacing="12" Padding="0,0,10,0">
+                <TextBox x:Name="UnpurchasedAvatarNameBox" Header="アバター名（必須）"/>
+                <TextBox x:Name="UnpurchasedAvatarBoothUrlBox" Header="BOOTH商品URL（必須）" PlaceholderText="https://booth.pm/ja/items/1234567"/>
+                <TextBox x:Name="UnpurchasedAvatarThumbnailBox" Header="サムネイル画像URL" PlaceholderText="https://..."/>
+                <StackPanel Spacing="6">
+                    <TextBlock Text="アバター識別タグ" FontWeight="SemiBold"/>
+                    <TextBlock Text="識別タグのテキストが商品説明・タグ・ダウンロードした商品名に含まれているか調べて自動的に対応アバターの判定を行います。メイン呼称にはこのアプリ上で表示したい名称を入力してください。表記ゆれ、英語名、BOOTH商品IDなどは＋ボタンで追加できます。大文字小文字、全角半角の違いは無視します。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                    <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="UnpurchasedAvatarIdentifierBox"/><Border Grid.Column="1" Padding="10,4" CornerRadius="12" Background="#FF555B66" VerticalAlignment="Center"><TextBlock Text="メイン呼称" Foreground="White" FontSize="12"/></Border></Grid>
+                    <StackPanel x:Name="UnpurchasedAvatarIdentifierRows" Spacing="6"/>
+                    <controls:HandCursorButton Click="AddUnpurchasedAvatarIdentifier_Click" HorizontalAlignment="Left"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE710;"/><TextBlock Text="識別タグを追加"/></StackPanel></controls:HandCursorButton>
+                </StackPanel>
+                <StackPanel Spacing="6">
+                    <TextBlock Text="共通素体のアバター" FontWeight="SemiBold"/>
+                    <TextBlock Text="候補を開き、共通素体として扱うアバターを複数選択できます。" FontSize="12" Opacity="0.7"/>
+                    <Button x:Name="UnpurchasedSharedBodySelectionButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Grid><TextBlock x:Name="UnpurchasedSharedBodySelectionSummary" Text="選択なし"/><FontIcon Glyph="&#xE70D;" HorizontalAlignment="Right"/></Grid>
+                        <Button.Flyout><Flyout Placement="BottomEdgeAlignedLeft"><Grid Width="400" Height="420" RowSpacing="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="共通素体のアバターを選択" FontWeight="SemiBold"/><TextBox x:Name="UnpurchasedSharedBodySearchBox" Grid.Row="1" PlaceholderText="アバターを検索" TextChanged="UnpurchasedSharedBodySearchBox_TextChanged"/><ListView Grid.Row="2" ItemsSource="{x:Bind VisibleSharedBodyOptions}" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch"><ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,6"/></Style></ListView.ItemContainerStyle><ListView.ItemTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Checked="UnpurchasedSharedBodyOption_Changed" Unchecked="UnpurchasedSharedBodyOption_Changed" HorizontalAlignment="Stretch"><Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="7" Margin="6,0,0,0"><StackPanel Orientation="Horizontal" Spacing="10"><Border Width="52" Height="52" CornerRadius="6" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="23" Opacity="0.25"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/></Grid></Border><TextBlock Text="{Binding DisplayName}" Width="280" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/></StackPanel></Border></CheckBox></DataTemplate></ListView.ItemTemplate></ListView></Grid></Flyout></Button.Flyout>
+                    </Button>
+                </StackPanel>
+                <TextBlock x:Name="UnpurchasedAvatarValidationText" Foreground="#FFD0434A" TextWrapping="Wrap"/>
+            </StackPanel>
+            </ScrollViewer>
+        </ContentDialog>
+
         <Border x:Name="DetailPanel" Grid.Column="2" Grid.RowSpan="4" Width="0" HorizontalAlignment="Right" Visibility="Collapsed" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,0,0,0" Canvas.ZIndex="20">
             <Border.RenderTransform><CompositeTransform x:Name="DetailPanelTransform" TranslateX="480"/></Border.RenderTransform>
-            <Grid Width="420" Padding="24,18,24,24" RowSpacing="16">
+            <Grid x:Name="DetailPanelContent" Width="420" Padding="24,18,24,24" RowSpacing="16">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -292,16 +377,16 @@
                         <controls:HandCursorButton.Template><ControlTemplate TargetType="controls:HandCursorButton"><ContentPresenter/></ControlTemplate></controls:HandCursorButton.Template>
                         <FontIcon Glyph="&#xE711;" FontSize="16"/>
                     </controls:HandCursorButton>
-                    <TextBlock Grid.Column="1" Text="アイテム詳細" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
-                    <controls:HandCursorButton Grid.Column="2" Click="EditDetail_Click" Margin="0,0,8,0"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE70F;"/><TextBlock Text="アイテム情報編集"/></StackPanel></controls:HandCursorButton>
-                    <controls:HandCursorButton Grid.Column="3" ToolTipService.ToolTip="その他の操作"><FontIcon Glyph="&#xE712;"/>
+                    <TextBlock x:Name="DetailPanelTitle" Grid.Column="1" Text="アイテム詳細" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
+                    <controls:HandCursorButton x:Name="DetailEditButton" Grid.Column="2" Click="EditDetail_Click" Margin="0,0,8,0"><StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE70F;"/><TextBlock x:Name="DetailEditButtonText" Text="アイテム情報編集"/></StackPanel></controls:HandCursorButton>
+                    <controls:HandCursorButton x:Name="DetailOperationsButton" Grid.Column="3" ToolTipService.ToolTip="その他の操作"><FontIcon Glyph="&#xE712;"/>
                         <controls:HandCursorButton.Flyout>
                             <Flyout x:Name="DetailOperationsFlyout" Placement="BottomEdgeAlignedRight">
                                 <Flyout.FlyoutPresenterStyle><Style TargetType="FlyoutPresenter"><Setter Property="Padding" Value="0"/></Style></Flyout.FlyoutPresenterStyle>
-                                <StackPanel Width="230" Spacing="0">
-                                    <controls:HandCursorButton Style="{StaticResource DetailMenuItemStyle}" Click="ReloadItem_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="BOOTHデータ再取得"/></StackPanel></controls:HandCursorButton>
-                                    <controls:HandCursorButton Style="{StaticResource DetailMenuItemStyle}" Click="ResetCompatibility_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE777;"/><TextBlock Text="対応アバター個別設定リセット"/></StackPanel></controls:HandCursorButton>
-                                    <controls:HandCursorButton Style="{StaticResource DetailMenuItemStyle}" Click="CheckDuplicates_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE74D;"/><TextBlock Text="ダウンロード重複削除"/></StackPanel></controls:HandCursorButton>
+                                <StackPanel x:Name="StandardDetailOperationsPanel" Width="270" Spacing="0">
+                                    <controls:HandCursorButton x:Name="ResetCompatibilityMenuItem" Style="{StaticResource DetailMenuItemStyle}" Click="ResetCompatibility_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE777;"/><TextBlock Text="対応アバター手動設定削除"/></StackPanel></controls:HandCursorButton>
+                                    <controls:HandCursorButton x:Name="CheckDuplicatesMenuItem" Style="{StaticResource DetailMenuItemStyle}" Click="CheckDuplicates_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE74D;"/><TextBlock Text="ダウンロードファイル重複削除"/></StackPanel></controls:HandCursorButton>
+                                <controls:HandCursorButton x:Name="DeleteUnpurchasedAvatarMenuItem" Visibility="Collapsed" Style="{StaticResource DetailMenuItemStyle}" Click="DeleteUnpurchasedAvatar_Click"><StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE74D;" Foreground="#FFD0434A"/><TextBlock Text="登録削除" Foreground="#FFD0434A"/></StackPanel></controls:HandCursorButton>
                                 </StackPanel>
                             </Flyout>
                         </controls:HandCursorButton.Flyout>
@@ -309,28 +394,31 @@
                 </Grid>
                 <ScrollViewer Grid.Row="1" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
                     <StackPanel Spacing="10">
-                        <Border Width="360" Height="360" CornerRadius="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <Border x:Name="DetailThumbnailBorder" Width="360" Height="360" CornerRadius="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                             <Grid>
                                 <FontIcon Glyph="&#xEB9F;" FontSize="56" Opacity="0.2"/>
                                 <Image x:Name="DetailThumbnail" Stretch="UniformToFill"/>
                                 <Border x:Name="DetailCategoryBadge" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" Padding="10,4" CornerRadius="12">
                                     <TextBlock x:Name="DetailCategoryText" Foreground="White" FontWeight="SemiBold"/>
                                 </Border>
+                                <Border x:Name="DetailPurchasedPackBadge" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Padding="8,3" CornerRadius="10" BorderThickness="1" Visibility="Collapsed">
+                                    <TextBlock x:Name="DetailPurchasedPackText" FontSize="11" FontWeight="SemiBold"/>
+                                </Border>
                             </Grid>
                         </Border>
-                        <Grid Width="360" ColumnSpacing="6">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="66"/><ColumnDefinition Width="66"/></Grid.ColumnDefinitions>
-                            <controls:HandCursorButton Click="DetailShop_Click" PointerEntered="DetailShop_PointerEntered" PointerExited="DetailShop_PointerExited" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">
+                        <Grid x:Name="DetailLinkRow" Width="360" ColumnSpacing="6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                            <controls:HandCursorButton x:Name="DetailShopButton" Click="DetailShop_Click" PointerEntered="DetailShop_PointerEntered" PointerExited="DetailShop_PointerExited" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">
                                 <controls:HandCursorButton.Template><ControlTemplate TargetType="controls:HandCursorButton"><Grid Background="Transparent"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/></Grid></ControlTemplate></controls:HandCursorButton.Template>
                                 <Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
                                     <StackPanel Orientation="Horizontal" Spacing="10"><Border Width="30" Height="30" CornerRadius="5" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="13" Opacity="0.3"/><Image x:Name="DetailShopThumbnail" Stretch="UniformToFill"/></Grid></Border><TextBlock x:Name="DetailShop" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel>
                                 </Border>
                             </controls:HandCursorButton>
-                            <controls:HandCursorButton Grid.Column="1" Click="DetailDownloadedProducts_Click" Padding="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTipService.ToolTip="ダウンロードした商品を表示">
-                                <StackPanel Spacing="2" HorizontalAlignment="Center"><FontIcon Glyph="&#xE896;" FontSize="17"/><TextBlock Text="DL商品" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
-                            </controls:HandCursorButton>
-                            <controls:HandCursorButton x:Name="DetailOpenBoothButton" Grid.Column="2" Click="DetailOpenBooth_Click" Padding="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTipService.ToolTip="BOOTH商品ページを開く">
+                            <controls:HandCursorButton x:Name="DetailOpenBoothButton" Grid.Column="1" Click="DetailOpenBooth_Click" Padding="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTipService.ToolTip="BOOTH商品ページを開く">
                                 <StackPanel Spacing="2" HorizontalAlignment="Center"><FontIcon Glyph="&#xE774;" FontSize="17"/><TextBlock Text="商品ページ" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
+                            </controls:HandCursorButton>
+                            <controls:HandCursorButton x:Name="DetailReloadButton" Grid.Column="2" Click="ReloadItem_Click" Padding="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTipService.ToolTip="BOOTHの商品データを再取得">
+                                <StackPanel Spacing="2" HorizontalAlignment="Center"><FontIcon Glyph="&#xE72C;" FontSize="17"/><TextBlock Text="データ再取得" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
                             </controls:HandCursorButton>
                         </Grid>
                         <TextBlock x:Name="DetailName" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"/>
@@ -348,11 +436,8 @@
                             </ItemsControl>
                         </Grid>
                         <StackPanel x:Name="DetailCompatibilityTitle" Orientation="Horizontal" Spacing="7" Margin="0,6,0,0" MinHeight="26" VerticalAlignment="Center">
-                            <Border x:Name="DetailPurchasedPackBadge" Padding="8,3" CornerRadius="10" BorderThickness="1" Visibility="Collapsed" VerticalAlignment="Center">
-                                <TextBlock x:Name="DetailPurchasedPackText" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            </Border>
                             <TextBlock Text="対応アバター" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <FontIcon x:Name="DetailCompatibilityEvidenceIcon" Glyph="&#xE8FD;" FontSize="14" Opacity="0.7" VerticalAlignment="Center"/>
+                            <Border x:Name="DetailCompatibilityEvidenceIcon" Width="18" Height="18" CornerRadius="9" BorderThickness="0.75" BorderBrush="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.75" VerticalAlignment="Center"><TextBlock Text="?" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0"/></Border>
                         </StackPanel>
                         <ItemsControl x:Name="DetailCompatibility">
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:SimpleWrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -369,7 +454,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <TextBlock x:Name="DetailPlacement" Visibility="Collapsed"/>
-                        <Border Margin="0,6,0,0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                        <Border x:Name="DetailDownloadsSection" Margin="0,6,0,0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <StackPanel Spacing="0">
                                 <Grid Padding="12,8" ColumnSpacing="8">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -382,6 +467,7 @@
                                         <StackPanel Orientation="Horizontal" Spacing="5"><FontIcon Glyph="&#xE8B7;" FontSize="12"/><TextBlock Text="フォルダーを開く" FontSize="11" TextWrapping="NoWrap"/></StackPanel>
                                     </controls:HandCursorButton>
                                 </Grid>
+                                <AutoSuggestBox x:Name="DownloadFileSearchBox" Margin="10,0,10,10" PlaceholderText="ファイル名を検索" QueryIcon="Find" TextChanged="DownloadFileSearchBox_TextChanged"/>
                                 <ItemsControl ItemsSource="{x:Bind DownloadFileCategories}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -425,6 +511,10 @@
                                 </ItemsControl>
                             </StackPanel>
                         </Border>
+                        <StackPanel x:Name="DetailBoothTagsSection" Spacing="6" Margin="0,6,0,0">
+                            <TextBlock Text="BOOTHタグ" FontWeight="SemiBold"/>
+                            <ItemsControl x:Name="DetailBoothTags"><ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:SimpleWrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><controls:LinkChipBorder Tag="{Binding}" Tapped="BoothTagChip_Tapped" Background="White" BorderBrush="#FFD0D2D6" BorderThickness="1" CornerRadius="8" Padding="9,4" Margin="0,0,6,6"><TextBlock Text="{Binding Text}" Foreground="#FF777B84" FontSize="12"/></controls:LinkChipBorder></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        </StackPanel>
                         <Expander Visibility="Collapsed" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="7">
@@ -546,7 +636,7 @@
                 <StackPanel x:Name="AvatarIdentifierEditor" Spacing="10" Visibility="Collapsed">
                     <StackPanel Spacing="6">
                         <TextBlock Text="アバター識別タグ" FontWeight="SemiBold"/>
-                        <TextBlock Text="メイン呼称も識別タグとして照合されます。表記ゆれ、英語名、BOOTH商品IDなどは＋ボタンで追加できます。大文字小文字、全角半角の違いは無視します。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                        <TextBlock Text="識別タグのテキストが商品説明・タグ・ダウンロードした商品名に含まれているか調べて自動的に対応アバターの判定を行います。メイン呼称にはこのアプリ上で表示したい名称を入力してください。表記ゆれ、英語名、BOOTH商品IDなどは＋ボタンで追加できます。大文字小文字、全角半角の違いは無視します。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBox x:Name="AvatarPrimaryIdentifierBox"/>

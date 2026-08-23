@@ -15,7 +15,7 @@
   <mp:PhoneIdentity PhoneProductId="a1e66b8f-e7aa-477f-b881-a68f63b6cf0d" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>VRC改変ライブラリ</DisplayName>
+    <DisplayName>VRC改変ライブラリ（BLM拡張）</DisplayName>
     <PublisherDisplayName>usa-mishin</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -34,7 +34,7 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="VRC改変ライブラリ"
+        DisplayName="VRC改変ライブラリ（BLM拡張）"
         Description="BOOTHで購入したVRChat向けアイテムを管理するデスクトップアプリ"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

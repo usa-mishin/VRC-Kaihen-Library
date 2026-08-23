@@ -36,7 +36,11 @@ public sealed class UserMetadataStore
                 name TEXT NOT NULL,
                 primary_identifier TEXT NOT NULL DEFAULT '',
                 identifiers_manual INTEGER NOT NULL DEFAULT 0,
-                base_body_group TEXT
+                base_body_group TEXT,
+                is_unpurchased INTEGER NOT NULL DEFAULT 0,
+                booth_url TEXT,
+                shop_name TEXT,
+                thumbnail_url TEXT
             );
             CREATE TABLE IF NOT EXISTS avatar_identifiers (
                 registration_id TEXT NOT NULL,
@@ -75,6 +79,10 @@ public sealed class UserMetadataStore
         command.ExecuteNonQuery();
         EnsureColumn(connection, "avatar_profiles", "primary_identifier", "TEXT NOT NULL DEFAULT ''");
         EnsureColumn(connection, "avatar_profiles", "identifiers_manual", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "avatar_profiles", "is_unpurchased", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "avatar_profiles", "booth_url", "TEXT");
+        EnsureColumn(connection, "avatar_profiles", "shop_name", "TEXT");
+        EnsureColumn(connection, "avatar_profiles", "thumbnail_url", "TEXT");
         EnsureColumn(connection, "item_metadata", "supports_all_avatars", "INTEGER NOT NULL DEFAULT 0");
         RemoveLegacyBoothUrlIdentifiers(connection);
     }
@@ -194,7 +202,7 @@ public sealed class UserMetadataStore
         using (var staleProfiles = connection.CreateCommand())
         {
             staleProfiles.Transaction = transaction;
-            staleProfiles.CommandText = "SELECT registration_id FROM avatar_profiles";
+            staleProfiles.CommandText = "SELECT registration_id FROM avatar_profiles WHERE is_unpurchased=0";
             using var reader = staleProfiles.ExecuteReader();
             var staleIds = new List<string>();
             while (reader.Read())
@@ -211,9 +219,9 @@ public sealed class UserMetadataStore
             using var profile = connection.CreateCommand();
             profile.Transaction = transaction;
             profile.CommandText = """
-                INSERT INTO avatar_profiles(registration_id, booth_item_id, name)
-                VALUES($id, $boothId, $name)
-                ON CONFLICT(registration_id) DO UPDATE SET booth_item_id=excluded.booth_item_id, name=excluded.name
+                INSERT INTO avatar_profiles(registration_id, booth_item_id, name, is_unpurchased)
+                VALUES($id, $boothId, $name, 0)
+                ON CONFLICT(registration_id) DO UPDATE SET booth_item_id=excluded.booth_item_id, name=excluded.name, is_unpurchased=0
                 """;
             profile.Parameters.AddWithValue("$id", item.RegistrationId);
             profile.Parameters.AddWithValue("$boothId", (object?)item.BoothItemId ?? DBNull.Value);
@@ -247,7 +255,69 @@ public sealed class UserMetadataStore
                 tag.ExecuteNonQuery();
             }
         }
+        foreach (var item in avatarItems.Where(x => x.BoothItemId is not null))
+            MergeMatchingUnpurchasedAvatar(connection, transaction, item.RegistrationId, item.BoothItemId!.Value);
         transaction.Commit();
+    }
+
+    private static void MergeMatchingUnpurchasedAvatar(SqliteConnection connection, SqliteTransaction transaction, string purchasedId, long boothItemId)
+    {
+        using var find = connection.CreateCommand();
+        find.Transaction = transaction;
+        find.CommandText = "SELECT registration_id FROM avatar_profiles WHERE is_unpurchased=1 AND booth_item_id=$boothId AND registration_id<>$purchasedId LIMIT 1";
+        find.Parameters.AddWithValue("$boothId", boothItemId);
+        find.Parameters.AddWithValue("$purchasedId", purchasedId);
+        var manualId = find.ExecuteScalar() as string;
+        if (manualId is null) return;
+
+        using (var updateProfile = connection.CreateCommand())
+        {
+            updateProfile.Transaction = transaction;
+            updateProfile.CommandText = """
+                UPDATE avatar_profiles SET
+                    primary_identifier=(SELECT primary_identifier FROM avatar_profiles WHERE registration_id=$manualId),
+                    identifiers_manual=1,
+                    base_body_group=(SELECT base_body_group FROM avatar_profiles WHERE registration_id=$manualId)
+                WHERE registration_id=$purchasedId
+                """;
+            updateProfile.Parameters.AddWithValue("$manualId", manualId);
+            updateProfile.Parameters.AddWithValue("$purchasedId", purchasedId);
+            updateProfile.ExecuteNonQuery();
+        }
+        using (var deleteTargetIdentifiers = connection.CreateCommand())
+        {
+            deleteTargetIdentifiers.Transaction = transaction;
+            deleteTargetIdentifiers.CommandText = "DELETE FROM avatar_identifiers WHERE registration_id=$purchasedId";
+            deleteTargetIdentifiers.Parameters.AddWithValue("$purchasedId", purchasedId);
+            deleteTargetIdentifiers.ExecuteNonQuery();
+        }
+        using (var copyIdentifiers = connection.CreateCommand())
+        {
+            copyIdentifiers.Transaction = transaction;
+            copyIdentifiers.CommandText = "INSERT OR IGNORE INTO avatar_identifiers(registration_id, identifier) SELECT $purchasedId, identifier FROM avatar_identifiers WHERE registration_id=$manualId";
+            copyIdentifiers.Parameters.AddWithValue("$manualId", manualId);
+            copyIdentifiers.Parameters.AddWithValue("$purchasedId", purchasedId);
+            copyIdentifiers.ExecuteNonQuery();
+        }
+        foreach (var column in new[] { "avatar_registration_id", "related_avatar_registration_id" })
+        {
+            using var copyRelations = connection.CreateCommand();
+            copyRelations.Transaction = transaction;
+            var otherColumn = column == "avatar_registration_id" ? "related_avatar_registration_id" : "avatar_registration_id";
+            copyRelations.CommandText = $"INSERT OR IGNORE INTO avatar_shared_body_relations(avatar_registration_id, related_avatar_registration_id) SELECT {(column == "avatar_registration_id" ? "$purchasedId" : otherColumn)}, {(column == "related_avatar_registration_id" ? "$purchasedId" : otherColumn)} FROM avatar_shared_body_relations WHERE {column}=$manualId AND {otherColumn}<>$purchasedId";
+            copyRelations.Parameters.AddWithValue("$manualId", manualId);
+            copyRelations.Parameters.AddWithValue("$purchasedId", purchasedId);
+            copyRelations.ExecuteNonQuery();
+        }
+        using (var copyOverrides = connection.CreateCommand())
+        {
+            copyOverrides.Transaction = transaction;
+            copyOverrides.CommandText = "INSERT OR REPLACE INTO item_compatibility_overrides(item_registration_id, avatar_registration_id, state, updated_at) SELECT item_registration_id, $purchasedId, state, updated_at FROM item_compatibility_overrides WHERE avatar_registration_id=$manualId";
+            copyOverrides.Parameters.AddWithValue("$manualId", manualId);
+            copyOverrides.Parameters.AddWithValue("$purchasedId", purchasedId);
+            copyOverrides.ExecuteNonQuery();
+        }
+        DeleteAvatarProfile(connection, transaction, manualId);
     }
 
     private static void DeleteAvatarProfile(SqliteConnection connection, SqliteTransaction transaction, string registrationId)
@@ -275,10 +345,12 @@ public sealed class UserMetadataStore
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT p.registration_id, p.booth_item_id, p.name, p.primary_identifier, p.base_body_group,
-                   COALESCE(group_concat(i.identifier, char(10)), '')
+                   COALESCE(group_concat(i.identifier, char(10)), ''), p.is_unpurchased,
+                   p.booth_url, p.shop_name, p.thumbnail_url
             FROM avatar_profiles p
             LEFT JOIN avatar_identifiers i ON i.registration_id=p.registration_id
-            GROUP BY p.registration_id, p.booth_item_id, p.name, p.primary_identifier, p.base_body_group
+            GROUP BY p.registration_id, p.booth_item_id, p.name, p.primary_identifier, p.base_body_group,
+                     p.is_unpurchased, p.booth_url, p.shop_name, p.thumbnail_url
             ORDER BY p.name COLLATE NOCASE
             """;
         using var reader = command.ExecuteReader();
@@ -286,8 +358,67 @@ public sealed class UserMetadataStore
             reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetInt64(1), reader.GetString(2),
             string.IsNullOrWhiteSpace(reader.GetString(3)) ? reader.GetString(2) : reader.GetString(3),
             reader.GetString(5).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-            reader.IsDBNull(4) ? null : reader.GetString(4)));
+            reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetBoolean(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7),
+            reader.IsDBNull(8) ? null : reader.GetString(8),
+            reader.IsDBNull(9) ? null : reader.GetString(9)));
         return result;
+    }
+
+    public void SaveUnpurchasedAvatar(AvatarProfile profile)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO avatar_profiles(registration_id, booth_item_id, name, primary_identifier, identifiers_manual,
+                                            is_unpurchased, booth_url, shop_name, thumbnail_url)
+                VALUES($id, $boothId, $name, $primary, 1, 1, $url, $shop, $thumbnail)
+                ON CONFLICT(registration_id) DO UPDATE SET booth_item_id=excluded.booth_item_id, name=excluded.name,
+                    primary_identifier=excluded.primary_identifier, identifiers_manual=1, is_unpurchased=1,
+                    booth_url=excluded.booth_url, shop_name=excluded.shop_name, thumbnail_url=excluded.thumbnail_url
+                """;
+            command.Parameters.AddWithValue("$id", profile.RegistrationId);
+            command.Parameters.AddWithValue("$boothId", (object?)profile.BoothItemId ?? DBNull.Value);
+            command.Parameters.AddWithValue("$name", profile.Name.Trim());
+            command.Parameters.AddWithValue("$primary", profile.PrimaryIdentifier.Trim());
+            command.Parameters.AddWithValue("$url", (object?)profile.BoothUrl ?? DBNull.Value);
+            command.Parameters.AddWithValue("$shop", (object?)profile.ShopName ?? DBNull.Value);
+            command.Parameters.AddWithValue("$thumbnail", (object?)profile.ThumbnailUrl ?? DBNull.Value);
+            command.ExecuteNonQuery();
+        }
+        using (var delete = connection.CreateCommand())
+        {
+            delete.Transaction = transaction;
+            delete.CommandText = "DELETE FROM avatar_identifiers WHERE registration_id=$id";
+            delete.Parameters.AddWithValue("$id", profile.RegistrationId);
+            delete.ExecuteNonQuery();
+        }
+        foreach (var identifier in profile.Identifiers.Select(x => x.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO avatar_identifiers(registration_id, identifier) VALUES($id, $identifier)";
+            insert.Parameters.AddWithValue("$id", profile.RegistrationId);
+            insert.Parameters.AddWithValue("$identifier", identifier);
+            insert.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
+
+    public void DeleteUnpurchasedAvatar(string registrationId)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        using var check = connection.CreateCommand();
+        check.Transaction = transaction;
+        check.CommandText = "SELECT is_unpurchased FROM avatar_profiles WHERE registration_id=$id";
+        check.Parameters.AddWithValue("$id", registrationId);
+        if (Convert.ToInt32(check.ExecuteScalar() ?? 0) != 1) return;
+        DeleteAvatarProfile(connection, transaction, registrationId);
+        transaction.Commit();
     }
 
     public void SaveAvatarProfile(AvatarProfile profile)

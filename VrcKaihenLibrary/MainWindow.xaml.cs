@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using VrcKaihenLibrary.Models;
 using VrcKaihenLibrary.Services;
@@ -44,6 +45,32 @@ public sealed class ShopFilterOption
     public string? ShopName { get; }
     public string DisplayName { get; }
     public string? ThumbnailUrl { get; }
+}
+public sealed class BoothTagSummary
+{
+    public BoothTagSummary() { }
+    public BoothTagSummary(string name, int count) { Name = name; Count = count; }
+    public string Name { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public string CountText => $"{Count:N0}件";
+}
+
+public sealed class AvatarCardItem
+{
+    public AvatarCardItem() { }
+    public AvatarCardItem(AvatarProfile profile, string displayName, string shopName, string? thumbnailUrl, LibraryItem? sourceItem)
+    {
+        Profile = profile; DisplayName = displayName; ShopName = shopName; ThumbnailUrl = thumbnailUrl; SourceItem = sourceItem;
+    }
+    public AvatarProfile Profile { get; set; } = new(string.Empty, null, string.Empty, string.Empty, [], null);
+    public string DisplayName { get; set; } = string.Empty;
+    public string ShopName { get; set; } = string.Empty;
+    public string? ThumbnailUrl { get; set; }
+    public LibraryItem? SourceItem { get; set; }
+    public Visibility UnpurchasedBadgeVisibility => Profile.IsUnpurchased ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility FileUpdateBadgeVisibility => SourceItem?.FileUpdateBadgeVisibility ?? Visibility.Collapsed;
+    public DateTimeOffset? RegisteredAt => SourceItem?.RegisteredAt;
+    public DateTimeOffset? UpdatedAt => SourceItem?.UpdatedAt;
 }
 public sealed class UnityPackageEntry
 {
@@ -122,6 +149,7 @@ public sealed class AvatarSelectionOption : INotifyPropertyChanged
 
 public sealed partial class MainWindow : Window
 {
+    private enum AppPage { Avatar, Library, Shop, BoothTags, Settings }
     private enum OperationPopupKind { Progress, Success, Information, Error }
     private sealed record UnityEditorTarget(int ProcessId, IntPtr WindowHandle);
     private sealed record ImportSettingEditor(string Category, TextBox FolderBox, CheckBox RootCheckBox);
@@ -141,6 +169,9 @@ public sealed partial class MainWindow : Window
     private readonly List<Button> _categoryTabButtons = [];
     private readonly List<(Button Button, FontIcon Check, string Value, string Label)> _sortOptionButtons = [];
     private readonly List<TextBox> _avatarIdentifierBoxes = [];
+    private readonly List<TextBox> _unpurchasedAvatarIdentifierBoxes = [];
+    private AvatarProfile? _detailAvatarProfile;
+    private AvatarProfile? _editingUnpurchasedAvatar;
     private int _currentPage = 1;
     private int _pageSize = 50;
     private int _filteredItemCount;
@@ -150,7 +181,9 @@ public sealed partial class MainWindow : Window
     private List<AvatarSelectionOption> _sharedBodyOptions = [];
     private string? _selectedAvatarFilterId;
     private string? _selectedShopFilter;
+    private string? _selectedBoothTag;
     private string? _selectedPurchasedPackType;
+    private bool _showFileUpdatesOnly;
     private readonly Dictionary<string, HashSet<string>> _compatibilityFilterCache = new(StringComparer.Ordinal);
     private Dictionary<string, Dictionary<string, int>> _compatibilityOverrides = new(StringComparer.Ordinal);
     private string _categoryAtEditStart = AssetCategories.Other;
@@ -163,12 +196,17 @@ public sealed partial class MainWindow : Window
     private int _operationPopupVersion;
 
     public ObservableCollection<LibraryItem> VisibleItems { get; } = [];
+    public ObservableCollection<AvatarCardItem> VisibleAvatarCards { get; } = [];
     public ObservableCollection<AvatarFilterOption> AvatarFilterOptions { get; } = [];
     public ObservableCollection<AvatarFilterOption> VisibleAvatarFilterOptions { get; } = [];
     public ObservableCollection<AvatarSelectionOption> VisibleCompatibilityOptions { get; } = [];
     public ObservableCollection<AvatarSelectionOption> VisibleSharedBodyOptions { get; } = [];
     public ObservableCollection<ShopFilterOption> ShopFilterOptions { get; } = [];
     public ObservableCollection<ShopFilterOption> VisibleShopFilterOptions { get; } = [];
+    public ObservableCollection<ShopFilterOption> VisibleShopCards { get; } = [];
+    public ObservableCollection<BoothTagSummary> VisibleBoothTags { get; } = [];
+    public ObservableCollection<BoothTagSummary> BoothTagFilterOptions { get; } = [];
+    public ObservableCollection<BoothTagSummary> VisibleBoothTagFilterOptions { get; } = [];
     public ObservableCollection<UnityPackageEntry> UnityPackages { get; } = [];
     public ObservableCollection<DownloadFileCategory> DownloadFileCategories { get; } = [];
     public ObservableCollection<DownloadFileEntry> VisibleDownloadFiles { get; } = [];
@@ -236,8 +274,13 @@ public sealed partial class MainWindow : Window
             RefreshCompatibilityCounts();
             PopulateAvatarFilters();
             PopulateShopFilters();
+            PopulateAvatarCards();
+            PopulateShopCards();
+            PopulateBoothTags();
+            PopulateBoothTagFilterOptions();
             PopulateCategories();
             ApplyFilter();
+            DispatcherQueue.TryEnqueue(() => UpdateItemCardWidths(ItemsGrid.ActualWidth));
             _isApplyingSmartTitleSetting = false;
             ShowOperationPopup(OperationPopupKind.Success, "同期が完了しました", $"{_allItems.Count:N0}件の商品を読み込みました。", autoDismiss: true);
         }
@@ -274,7 +317,7 @@ public sealed partial class MainWindow : Window
         CategoryTabs.Children.Clear();
         _categoryTabButtons.Clear();
         AddCategoryTab(AllCategories);
-        foreach (var category in AssetCategories.All)
+        foreach (var category in AssetCategories.All.Where(x => x != AssetCategories.Avatar))
             AddCategoryTab(category);
     }
 
@@ -291,6 +334,7 @@ public sealed partial class MainWindow : Window
         _selectedAvatarFilterId = selected.RegistrationId;
         AvatarFilterButtonText.Text = selected.PrimaryIdentifier;
         ApplyAvatarFilterOptionSearch();
+        PopulateAvatarCards();
     }
 
     private void PopulateShopFilters()
@@ -304,6 +348,92 @@ public sealed partial class MainWindow : Window
         var selected = ShopFilterOptions.FirstOrDefault(x => string.Equals(x.ShopName, _selectedShopFilter, StringComparison.CurrentCultureIgnoreCase)) ?? ShopFilterOptions[0];
         ShopFilterButtonText.Text = selected.DisplayName;
         ApplyShopFilterOptionSearch();
+        PopulateShopCards();
+    }
+
+    private void PopulateAvatarCards()
+    {
+        var filter = AvatarPurchaseFilterBox?.SelectedIndex ?? 0;
+        VisibleAvatarCards.Clear();
+        var cards = _avatarProfiles
+            .Where(x => filter == 0 || (filter == 1 && !x.IsUnpurchased) || (filter == 2 && x.IsUnpurchased))
+            .Select(profile =>
+            {
+                var item = _allItems.FirstOrDefault(x => x.RegistrationId == profile.RegistrationId);
+                return new AvatarCardItem(profile, item?.DisplayName ?? profile.Name,
+                    item?.ShopName ?? profile.ShopName ?? string.Empty, item?.ThumbnailUrl ?? profile.ThumbnailUrl, item);
+            });
+        cards = AvatarSortBox?.SelectedIndex switch
+        {
+            0 => cards.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase),
+            1 => cards.OrderByDescending(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase),
+            2 => cards.OrderBy(x => x.ShopName, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.DisplayName),
+            3 => cards.OrderByDescending(x => x.ShopName, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.DisplayName),
+            5 => cards.OrderBy(x => x.RegisteredAt ?? DateTimeOffset.MaxValue),
+            6 => cards.OrderByDescending(x => x.UpdatedAt ?? DateTimeOffset.MinValue),
+            7 => cards.OrderBy(x => x.UpdatedAt ?? DateTimeOffset.MaxValue),
+            _ => cards.OrderByDescending(x => x.RegisteredAt ?? DateTimeOffset.MinValue)
+        };
+        foreach (var card in cards) VisibleAvatarCards.Add(card);
+    }
+
+    private void PopulateShopCards()
+    {
+        var query = ShopPageSearchBox?.Text?.Trim() ?? string.Empty;
+        VisibleShopCards.Clear();
+        foreach (var shop in ShopFilterOptions.Skip(1).Where(x => string.IsNullOrEmpty(query) || Contains(x.DisplayName, query)))
+            VisibleShopCards.Add(shop);
+    }
+
+    private void PopulateBoothTags()
+    {
+        var query = BoothTagSearchBox?.Text?.Trim() ?? string.Empty;
+        var counts = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var item in _allItems.Where(item => item.Category != AssetCategories.Avatar))
+        {
+            foreach (var tag in item.Tags.Split(" / ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                         .Distinct(StringComparer.CurrentCultureIgnoreCase))
+                counts[tag] = counts.GetValueOrDefault(tag) + 1;
+        }
+
+        VisibleBoothTags.Clear();
+        foreach (var tag in counts.Where(pair => string.IsNullOrEmpty(query) || Contains(pair.Key, query))
+                     .OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key, StringComparer.CurrentCultureIgnoreCase))
+            VisibleBoothTags.Add(new BoothTagSummary(tag.Key, tag.Value));
+    }
+
+    private void PopulateBoothTagFilterOptions()
+    {
+        BoothTagFilterOptions.Clear();
+        BoothTagFilterOptions.Add(new BoothTagSummary("タグ指定なし", 0));
+        var counts = _allItems.Where(item => item.Category != AssetCategories.Avatar)
+            .SelectMany(item => item.Tags.Split(" / ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.CurrentCultureIgnoreCase))
+            .GroupBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)
+            .Select(group => new BoothTagSummary(group.Key, group.Count()))
+            .OrderByDescending(tag => tag.Count).ThenBy(tag => tag.Name, StringComparer.CurrentCultureIgnoreCase);
+        foreach (var tag in counts) BoothTagFilterOptions.Add(tag);
+        ApplyBoothTagFilterSearch();
+    }
+
+    private void BoothTagFilterSearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyBoothTagFilterSearch();
+
+    private void ApplyBoothTagFilterSearch()
+    {
+        if (BoothTagFilterSearchBox is null) return;
+        var query = BoothTagFilterSearchBox.Text.Trim();
+        VisibleBoothTagFilterOptions.Clear();
+        foreach (var option in BoothTagFilterOptions.Where(option => option.Count == 0 || string.IsNullOrEmpty(query) || Contains(option.Name, query)))
+            VisibleBoothTagFilterOptions.Add(option);
+    }
+
+    private void BoothTagFilterList_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not BoothTagSummary option) return;
+        _selectedBoothTag = option.Count == 0 ? null : option.Name;
+        BoothTagFilterButtonText.Text = _selectedBoothTag ?? "タグ指定なし";
+        BoothTagFilterFlyout.Hide();
+        _currentPage = 1;
+        ApplyFilter();
     }
 
     private void AddCategoryTab(string category)
@@ -324,12 +454,15 @@ public sealed partial class MainWindow : Window
 
     private void ApplyFilter()
     {
+        if (ItemsGrid.ActualWidth > 0) UpdateItemCardWidths(ItemsGrid.ActualWidth);
         var query = SearchBox.Text?.Trim() ?? string.Empty;
-        var filtered = _allItems.Where(item =>
+        var filtered = _allItems.Where(item => item.Category != AssetCategories.Avatar &&
             (string.IsNullOrEmpty(query) || Contains(item.Name, query) || Contains(item.ShopName, query) || Contains(item.Tags, query)) &&
             (_selectedCategory == AllCategories || item.Category == _selectedCategory) &&
             (_selectedShopFilter is null || item.ShopName.Equals(_selectedShopFilter, StringComparison.CurrentCultureIgnoreCase)) &&
+            (_selectedBoothTag is null || item.Tags.Split(" / ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Contains(_selectedBoothTag, StringComparer.CurrentCultureIgnoreCase)) &&
             (_selectedPurchasedPackType is null || item.PurchasedPackType == _selectedPurchasedPackType) &&
+            (!_showFileUpdatesOnly || item.HasFileUpdate) &&
             MatchesAvatarFilter(item)).ToList();
         filtered = SortItems(filtered).ToList();
 
@@ -409,16 +542,196 @@ public sealed partial class MainWindow : Window
         _currentPage = 1;
         ApplyFilter();
     }
-    private async void Refresh_Click(object sender, RoutedEventArgs e) => await LoadLibraryAsync();
-    private void PurchasedPackFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+
+    private void AvatarPurchaseFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        _selectedPurchasedPackType = PurchasedPackFilterBox.SelectedIndex switch
+        if (_avatarProfiles.Count > 0) PopulateAvatarCards();
+    }
+
+    private void AvatarSortBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_avatarProfiles.Count > 0) PopulateAvatarCards();
+    }
+
+    private void ShopPageSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (_allItems.Count > 0) PopulateShopCards();
+    }
+
+    private void BoothTagSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (_allItems.Count > 0) PopulateBoothTags();
+    }
+
+    private void AvatarGrid_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not AvatarCardItem card) return;
+        if (card.SourceItem is not null)
         {
-            1 => PurchasedPackClassifier.FullPack,
-            2 => PurchasedPackClassifier.AvatarSpecific,
-            3 => PurchasedPackClassifier.FreeDownload,
-            _ => null
-        };
+            OpenItemDetail(card.SourceItem);
+            return;
+        }
+        OpenUnpurchasedAvatarDetail(card.Profile);
+    }
+
+    private void ShopGrid_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not ShopFilterOption { ShopName: not null } shop) return;
+        SearchBox.Text = string.Empty;
+        _selectedCategory = AllCategories;
+        _selectedAvatarFilterId = null;
+        _selectedPurchasedPackType = null;
+        _showFileUpdatesOnly = false;
+        FreeDownloadOnlyCheckBox.IsChecked = false;
+        FileUpdateOnlyCheckBox.IsChecked = false;
+        CompactFreeDownloadOnlyCheckBox.IsChecked = false;
+        CompactFileUpdateOnlyCheckBox.IsChecked = false;
+        CompactSearchBox.Text = string.Empty;
+        CompactAvatarFilterBox.SelectedIndex = 0;
+        CompactShopFilterBox.SelectedIndex = 0;
+        CompactBoothTagFilterBox.SelectedIndex = 0;
+        AvatarFilterButtonText.Text = "すべての対応アバター";
+        _selectedShopFilter = shop.ShopName;
+        ShopFilterButtonText.Text = shop.DisplayName;
+        _currentPage = 1;
+        foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
+        SetActivePage(AppPage.Library);
+        ApplyFilter();
+    }
+
+    private async void AddUnpurchasedAvatar_Click(object sender, RoutedEventArgs e)
+    {
+        _editingUnpurchasedAvatar = null;
+        UnpurchasedAvatarDialog.Title = "未購入アバターを追加";
+        UnpurchasedAvatarNameBox.Text = string.Empty;
+        UnpurchasedAvatarBoothUrlBox.Text = string.Empty;
+        UnpurchasedAvatarBoothUrlBox.IsEnabled = true;
+        UnpurchasedAvatarThumbnailBox.Text = string.Empty;
+        UnpurchasedAvatarIdentifierBox.Text = string.Empty;
+        UnpurchasedAvatarIdentifierRows.Children.Clear();
+        _unpurchasedAvatarIdentifierBoxes.Clear();
+        PrepareUnpurchasedSharedBodyOptions(null);
+        UnpurchasedAvatarValidationText.Text = string.Empty;
+        await UnpurchasedAvatarDialog.ShowAsync();
+    }
+
+    private void AddUnpurchasedAvatarIdentifier_Click(object sender, RoutedEventArgs e) => AddUnpurchasedAvatarIdentifierRow(string.Empty);
+
+    private void AddUnpurchasedAvatarIdentifierRow(string value)
+    {
+        var row = new Grid { ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var textBox = new TextBox { Text = value, PlaceholderText = "識別子を入力" };
+        var remove = new Controls.HandCursorButton { Content = new FontIcon { Glyph = "\uE738", FontSize = 14 }, Tag = row, Padding = new Thickness(10) };
+        remove.Click += RemoveUnpurchasedAvatarIdentifier_Click;
+        Grid.SetColumn(remove, 1);
+        row.Children.Add(textBox); row.Children.Add(remove);
+        UnpurchasedAvatarIdentifierRows.Children.Add(row);
+        _unpurchasedAvatarIdentifierBoxes.Add(textBox);
+        if (string.IsNullOrEmpty(value)) textBox.Focus(FocusState.Programmatic);
+    }
+
+    private void RemoveUnpurchasedAvatarIdentifier_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: Grid row }) return;
+        if (row.Children.OfType<TextBox>().FirstOrDefault() is { } box) _unpurchasedAvatarIdentifierBoxes.Remove(box);
+        UnpurchasedAvatarIdentifierRows.Children.Remove(row);
+    }
+
+    private void PrepareUnpurchasedSharedBodyOptions(AvatarProfile? avatar)
+    {
+        var relatedIds = avatar is not null && _sharedBodyRelations.TryGetValue(avatar.RegistrationId, out var saved) ? saved : [];
+        _sharedBodyOptions = _avatarProfiles.Where(x => x.RegistrationId != avatar?.RegistrationId)
+            .Select(profile =>
+            {
+                var item = _allItems.FirstOrDefault(x => x.RegistrationId == profile.RegistrationId);
+                return new AvatarSelectionOption(profile, relatedIds.Contains(profile.RegistrationId), item?.DisplayName ?? profile.Name, item?.ThumbnailUrl ?? profile.ThumbnailUrl);
+            }).ToList();
+        UnpurchasedSharedBodySearchBox.Text = string.Empty;
+        ApplyUnpurchasedSharedBodyOptionSearch();
+        UpdateUnpurchasedSharedBodySummary();
+    }
+
+    private void UnpurchasedSharedBodyOption_Changed(object sender, RoutedEventArgs e)
+    {
+        UpdateUnpurchasedSharedBodySummary();
+    }
+
+    private void UnpurchasedSharedBodySearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyUnpurchasedSharedBodyOptionSearch();
+
+    private void ApplyUnpurchasedSharedBodyOptionSearch()
+    {
+        if (UnpurchasedSharedBodySearchBox is null) return;
+        var query = UnpurchasedSharedBodySearchBox.Text.Trim();
+        VisibleSharedBodyOptions.Clear();
+        foreach (var option in _sharedBodyOptions.Where(x => string.IsNullOrWhiteSpace(query)
+                     || Contains(x.DisplayName, query) || Contains(x.PrimaryIdentifier, query)))
+            VisibleSharedBodyOptions.Add(option);
+    }
+    private void UpdateUnpurchasedSharedBodySummary()
+    {
+        var selected = _sharedBodyOptions.Where(x => x.IsSelected).Select(x => x.PrimaryIdentifier).ToList();
+        UnpurchasedSharedBodySelectionSummary.Text = selected.Count switch { 0 => "選択なし", <= 2 => string.Join("、", selected), _ => $"{string.Join("、", selected.Take(2))} ほか{selected.Count - 2}件" };
+    }
+
+    private async void UnpurchasedAvatarDialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        var name = UnpurchasedAvatarNameBox.Text.Trim();
+        var boothUrl = UnpurchasedAvatarBoothUrlBox.Text.Trim();
+        var primary = UnpurchasedAvatarIdentifierBox.Text.Trim();
+        var match = Regex.Match(boothUrl, @"^https://(?:[a-z]{2}\.)?booth\.pm/(?:[a-z]{2}/)?items/(?<id>\d+)(?:[/?#].*)?$", RegexOptions.IgnoreCase);
+        if (name.Length == 0 || primary.Length == 0 || !match.Success)
+        {
+            args.Cancel = true;
+            UnpurchasedAvatarValidationText.Text = "アバター名、識別名、有効なBOOTH商品URLを入力してください。";
+            return;
+        }
+        var boothItemId = long.Parse(match.Groups["id"].Value);
+        var identifiers = _unpurchasedAvatarIdentifierBoxes.Select(x => x.Text.Trim()).Where(x => x.Length > 0)
+            .Where(x => !x.Equals(primary, StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var profile = new AvatarProfile($"manual-avatar:{boothItemId}", boothItemId, name, primary, identifiers, null,
+            true, $"https://booth.pm/ja/items/{boothItemId}", null,
+            NullIfWhiteSpace(UnpurchasedAvatarThumbnailBox.Text));
+        var deferral = args.GetDeferral();
+        try
+        {
+            await Task.Run(() => _metadataStore.SaveUnpurchasedAvatar(profile));
+            var relatedIds = _sharedBodyOptions.Where(x => x.IsSelected).Select(x => x.Profile.RegistrationId).ToList();
+            await Task.Run(() => _metadataStore.SaveSharedBodyRelations(profile.RegistrationId, relatedIds));
+            _avatarProfiles = await Task.Run(_metadataStore.ReadAvatarProfiles);
+            _sharedBodyRelations = await Task.Run(_metadataStore.ReadSharedBodyRelations);
+            _compatibilityFilterCache.Clear();
+            ApplyTitleCleanupIdentifiers();
+            PopulateAvatarFilters();
+            PopulateAvatarCards();
+            if (_editingUnpurchasedAvatar is not null)
+            {
+                _detailAvatarProfile = _avatarProfiles.FirstOrDefault(x => x.RegistrationId == profile.RegistrationId);
+                if (_detailAvatarProfile is not null) OpenUnpurchasedAvatarDetail(_detailAvatarProfile);
+            }
+            ShowOperationPopup(OperationPopupKind.Success, _editingUnpurchasedAvatar is null ? "未購入アバターを追加しました" : "未購入アバターを更新しました", name, autoDismiss: true);
+        }
+        catch (Exception ex)
+        {
+            args.Cancel = true;
+            UnpurchasedAvatarValidationText.Text = ex.Message;
+        }
+        finally { deferral.Complete(); }
+    }
+
+    private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private async void Refresh_Click(object sender, RoutedEventArgs e) => await LoadLibraryAsync();
+    private void FreeDownloadOnlyCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _selectedPurchasedPackType = FreeDownloadOnlyCheckBox.IsChecked == true ? PurchasedPackClassifier.FreeDownload : null;
+        _currentPage = 1;
+        if (_allItems.Count > 0) ApplyFilter();
+    }
+
+    private void FileUpdateOnlyCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _showFileUpdatesOnly = FileUpdateOnlyCheckBox.IsChecked == true;
         _currentPage = 1;
         if (_allItems.Count > 0) ApplyFilter();
     }
@@ -429,12 +742,23 @@ public sealed partial class MainWindow : Window
         _selectedCategory = AllCategories;
         _selectedAvatarFilterId = null;
         _selectedShopFilter = null;
+        _selectedBoothTag = null;
         _selectedPurchasedPackType = null;
+        _showFileUpdatesOnly = false;
         AvatarFilterButtonText.Text = "すべての対応アバター";
         ShopFilterButtonText.Text = "すべてのショップ";
+        BoothTagFilterButtonText.Text = "タグ指定なし";
         AvatarFilterSearchBox.Text = string.Empty;
         ShopFilterSearchBox.Text = string.Empty;
-        PurchasedPackFilterBox.SelectedIndex = 0;
+        BoothTagFilterSearchBox.Text = string.Empty;
+        FreeDownloadOnlyCheckBox.IsChecked = false;
+        FileUpdateOnlyCheckBox.IsChecked = false;
+        CompactFreeDownloadOnlyCheckBox.IsChecked = false;
+        CompactFileUpdateOnlyCheckBox.IsChecked = false;
+        CompactSearchBox.Text = string.Empty;
+        CompactAvatarFilterBox.SelectedIndex = 0;
+        CompactShopFilterBox.SelectedIndex = 0;
+        CompactBoothTagFilterBox.SelectedIndex = 0;
         _currentPage = 1;
         foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
         ApplyFilter();
@@ -587,6 +911,7 @@ public sealed partial class MainWindow : Window
         var selectedBrush = _selectedCategory == AllCategories
             ? (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
             : LibraryItem.GetCategoryBrush(_selectedCategory);
+        CategorySelectionLine.Background = selectedBrush;
         tab.Background = selected ? selectedBrush : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         tab.BorderBrush = selected ? selectedBrush : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         tab.Foreground = selected
@@ -613,13 +938,19 @@ public sealed partial class MainWindow : Window
     private void ItemsGrid_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is not LibraryItem item) return;
+        OpenItemDetail(item);
+    }
+
+    private void OpenItemDetail(LibraryItem item)
+    {
         try
         {
+            _detailAvatarProfile = null;
             _detailItem = item;
             UpdateDetailPanel();
             var wasOpen = DetailPanel.Visibility == Visibility.Visible;
             DetailPanel.Visibility = Visibility.Visible;
-            DetailPanel.Width = 420;
+            UpdateDetailPanelSize(RootLayout.ActualWidth);
             if (!wasOpen) OpenDetailPanelStoryboard.Begin();
             _ = LoadDownloadFilesAsync(item);
         }
@@ -628,6 +959,25 @@ public sealed partial class MainWindow : Window
             ShowOperationPopup(OperationPopupKind.Error, "詳細を表示できませんでした", ex.Message);
             Debug.WriteLine($"Detail panel error ({item.RegistrationId}): {ex}");
         }
+    }
+
+    private void OpenUnpurchasedAvatarDetail(AvatarProfile profile)
+    {
+        _detailAvatarProfile = profile;
+        _detailItem = new LibraryItem
+        {
+            RegistrationId = profile.RegistrationId,
+            BoothItemId = profile.BoothItemId,
+            Name = profile.Name,
+            Category = AssetCategories.Avatar,
+            ThumbnailUrl = profile.ThumbnailUrl,
+            ImportToAssetsRoot = true
+        };
+        UpdateDetailPanel();
+        var wasOpen = DetailPanel.Visibility == Visibility.Visible;
+        DetailPanel.Visibility = Visibility.Visible;
+        UpdateDetailPanelSize(RootLayout.ActualWidth);
+        if (!wasOpen) OpenDetailPanelStoryboard.Begin();
     }
 
     private static readonly (string Key, string DisplayName, string Glyph, Windows.UI.Color Color)[] DownloadCategoryDefinitions =
@@ -643,6 +993,8 @@ public sealed partial class MainWindow : Window
     private async Task LoadDownloadFilesAsync(LibraryItem item)
     {
         var loadVersion = ++_unityPackageLoadVersion;
+        DownloadFileSearchBox.Text = string.Empty;
+        _downloadFiles = [];
         DownloadFileCategories.Clear();
         DownloadFileTotalCountText.Text = "検索中";
 
@@ -650,9 +1002,23 @@ public sealed partial class MainWindow : Window
         if (_isClosing || loadVersion != _unityPackageLoadVersion || _detailItem?.RegistrationId != item.RegistrationId) return;
 
         _downloadFiles = files;
+        ApplyDownloadFileFilter();
+    }
+
+    private void DownloadFileSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args) => ApplyDownloadFileFilter();
+
+    private void ApplyDownloadFileFilter()
+    {
+        if (DownloadFileSearchBox is null || _detailItem is null) return;
+        var query = DownloadFileSearchBox.Text.Trim();
+        var files = _downloadFiles.Where(file => string.IsNullOrWhiteSpace(query)
+            || Contains(file.FileName, query)
+            || Contains(file.DirectoryText, query)).ToList();
+        DownloadFileCategories.Clear();
         foreach (var definition in DownloadCategoryDefinitions)
         {
             var categoryFiles = files.Where(x => x.CategoryKey == definition.Key).ToList();
+            if (!string.IsNullOrWhiteSpace(query) && categoryFiles.Count == 0) continue;
             var accentBrush = new SolidColorBrush(definition.Color);
             foreach (var file in categoryFiles) file.AccentBrush = accentBrush;
             DownloadFileCategories.Add(new DownloadFileCategory
@@ -663,14 +1029,16 @@ public sealed partial class MainWindow : Window
                 AccentBrush = accentBrush,
                 Count = categoryFiles.Count,
                 Subtitle = definition.Key == "UnityPackage"
-                    ? ImportsToAssetsRoot(item)
+                    ? ImportsToAssetsRoot(_detailItem)
                         ? "Unity配置先: Assets直下"
-                        : $"Unity配置先: Assets/{GetImportFolderName(item.Category)}"
+                        : $"Unity配置先: Assets/{GetImportFolderName(_detailItem.Category)}"
                     : string.Empty,
                 Files = categoryFiles
             });
         }
-        DownloadFileTotalCountText.Text = $"{files.Count}個";
+        DownloadFileTotalCountText.Text = string.IsNullOrWhiteSpace(query)
+            ? $"{files.Count}個"
+            : $"{files.Count} / {_downloadFiles.Count}個";
     }
 
     private static IReadOnlyList<DownloadFileEntry> FindDownloadFiles(string rootPath)
@@ -936,11 +1304,27 @@ public sealed partial class MainWindow : Window
     private void UpdateDetailPanel()
     {
         if (_detailItem is not { } item) return;
+        var isUnpurchased = _detailAvatarProfile?.IsUnpurchased == true;
+        DetailPanelTitle.Text = "アイテム詳細";
+        DetailEditButtonText.Text = "アイテム情報編集";
+        DetailReloadButton.Visibility = isUnpurchased ? Visibility.Collapsed : Visibility.Visible;
+        ResetCompatibilityMenuItem.Visibility = isUnpurchased ? Visibility.Collapsed : Visibility.Visible;
+        CheckDuplicatesMenuItem.Visibility = isUnpurchased ? Visibility.Collapsed : Visibility.Visible;
+        DeleteUnpurchasedAvatarMenuItem.Visibility = isUnpurchased ? Visibility.Visible : Visibility.Collapsed;
+        DetailShopButton.Visibility = isUnpurchased ? Visibility.Collapsed : Visibility.Visible;
+        DetailOpenBoothButton.Visibility = isUnpurchased ? Visibility.Collapsed : Visibility.Visible;
+        DetailDownloadsSection.Visibility = isUnpurchased ? Visibility.Collapsed : Visibility.Visible;
         DetailName.Text = item.DisplayName;
         DetailShop.Text = item.ShopName;
         DetailShopThumbnail.Source = CreateImageSource(item.ShopThumbnailUrl);
         DetailCategoryText.Text = item.Category;
         DetailCategoryBadge.Background = item.CategoryBadgeBrush;
+        var boothTags = item.Tags.Split(" / ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Select(tag => new DetailTagChip(tag, null, false))
+            .ToList();
+        DetailBoothTags.ItemsSource = boothTags;
+        DetailBoothTagsSection.Visibility = boothTags.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         DetailPlacement.Text = ImportsToAssetsRoot(item)
             ? "Unity配置先: Assets直下"
             : $"Unity配置先: Assets/{GetImportFolderName(item.Category)}";
@@ -995,6 +1379,11 @@ public sealed partial class MainWindow : Window
     private async void EditDetail_Click(object sender, RoutedEventArgs e)
     {
         if (_detailItem is null) return;
+        if (_detailAvatarProfile?.IsUnpurchased == true)
+        {
+            await ShowUnpurchasedAvatarEditorAsync(_detailAvatarProfile);
+            return;
+        }
         _categoryAtEditStart = _detailItem.Category;
         DetailCategory.SelectedItem = _detailItem.Category;
         UpdateImportRootEditor(_detailItem.Category, _detailItem.ImportToAssetsRoot);
@@ -1014,7 +1403,7 @@ public sealed partial class MainWindow : Window
                 .Select(profile =>
                 {
                     var avatarItem = _allItems.FirstOrDefault(x => x.RegistrationId == profile.RegistrationId);
-                    return new AvatarSelectionOption(profile, relatedIds.Contains(profile.RegistrationId), avatarItem?.DisplayName ?? profile.PrimaryIdentifier, avatarItem?.ThumbnailUrl);
+                    return new AvatarSelectionOption(profile, relatedIds.Contains(profile.RegistrationId), avatarItem?.DisplayName ?? profile.Name, avatarItem?.ThumbnailUrl ?? profile.ThumbnailUrl);
                 }).ToList();
             SharedBodySearchBox.Text = string.Empty;
             ApplySharedBodyOptionSearch();
@@ -1025,7 +1414,7 @@ public sealed partial class MainWindow : Window
             .Select(profile =>
             {
                 var avatarItem = _allItems.FirstOrDefault(x => x.RegistrationId == profile.RegistrationId);
-                return new AvatarSelectionOption(profile, effectiveIds.Contains(profile.RegistrationId), avatarItem?.DisplayName ?? profile.PrimaryIdentifier, avatarItem?.ThumbnailUrl);
+                return new AvatarSelectionOption(profile, effectiveIds.Contains(profile.RegistrationId), avatarItem?.DisplayName ?? profile.Name, avatarItem?.ThumbnailUrl ?? profile.ThumbnailUrl);
             })
             .ToList();
         CompatibilitySearchBox.Text = string.Empty;
@@ -1033,6 +1422,42 @@ public sealed partial class MainWindow : Window
         AllAvatarsCheckBox.IsChecked = _detailItem.SupportsAllAvatars;
         UpdateCompatibilitySelectionSummary();
         await DetailDialog.ShowAsync();
+    }
+
+    private async Task ShowUnpurchasedAvatarEditorAsync(AvatarProfile profile)
+    {
+        _editingUnpurchasedAvatar = profile;
+        UnpurchasedAvatarDialog.Title = "未購入アバターを編集";
+        UnpurchasedAvatarNameBox.Text = profile.Name;
+        UnpurchasedAvatarBoothUrlBox.Text = profile.BoothUrl ?? string.Empty;
+        UnpurchasedAvatarBoothUrlBox.IsEnabled = false;
+        UnpurchasedAvatarThumbnailBox.Text = profile.ThumbnailUrl ?? string.Empty;
+        UnpurchasedAvatarIdentifierBox.Text = profile.PrimaryIdentifier;
+        UnpurchasedAvatarIdentifierRows.Children.Clear();
+        _unpurchasedAvatarIdentifierBoxes.Clear();
+        foreach (var identifier in profile.Identifiers) AddUnpurchasedAvatarIdentifierRow(identifier);
+        PrepareUnpurchasedSharedBodyOptions(profile);
+        UnpurchasedAvatarValidationText.Text = string.Empty;
+        await UnpurchasedAvatarDialog.ShowAsync();
+    }
+
+    private async void DeleteUnpurchasedAvatar_Click(object sender, RoutedEventArgs e)
+    {
+        if (_detailAvatarProfile?.IsUnpurchased != true) return;
+        DetailOperationsFlyout.Hide();
+        var profile = _detailAvatarProfile;
+        var dialog = new ContentDialog { XamlRoot = RootLayout.XamlRoot, Title = "未購入アバターの登録を削除しますか？", Content = $"{profile.Name}\n\n識別子、共通素体、対応設定も削除されます。", PrimaryButtonText = "登録削除", CloseButtonText = "キャンセル", DefaultButton = ContentDialogButton.Close };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await Task.Run(() => _metadataStore.DeleteUnpurchasedAvatar(profile.RegistrationId));
+        _avatarProfiles = await Task.Run(_metadataStore.ReadAvatarProfiles);
+        _sharedBodyRelations = await Task.Run(_metadataStore.ReadSharedBodyRelations);
+        _compatibilityOverrides = await Task.Run(_metadataStore.ReadAllCompatibilityOverrides);
+        _compatibilityFilterCache.Clear();
+        PopulateAvatarFilters();
+        await CloseDetailPanelAsync();
+        _detailAvatarProfile = null;
+        _detailItem = null;
+        ShowOperationPopup(OperationPopupKind.Success, "未購入アバターを削除しました", profile.Name, autoDismiss: true);
     }
 
     private async void CloseDetailPanel_Click(object sender, RoutedEventArgs e) => await CloseDetailPanelAsync();
@@ -1078,20 +1503,84 @@ public sealed partial class MainWindow : Window
     }
 
     private void ItemsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdateItemCardWidths(e.NewSize.Width);
+
+    private void UpdateItemCardWidths(double gridWidth)
     {
         const double minimumCardWidth = 180;
         const double cardOuterSpacing = 8;
-        var usableWidth = Math.Max(minimumCardWidth + cardOuterSpacing, e.NewSize.Width - 2);
+        var usableWidth = Math.Max(minimumCardWidth + cardOuterSpacing, gridWidth - 2);
         var columns = Math.Max(1, (int)Math.Floor(usableWidth / (minimumCardWidth + cardOuterSpacing)));
         var cardWidth = Math.Floor(usableWidth / columns) - cardOuterSpacing;
         foreach (var item in _allItems) item.CardWidth = Math.Max(minimumCardWidth, cardWidth);
     }
 
-    private void LibraryMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(showLibrary: true);
+    private void RootLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateLibraryHeaderLayout(e.NewSize.Width);
+        if (DetailPanel.Visibility == Visibility.Visible) UpdateDetailPanelSize(e.NewSize.Width);
+    }
+
+    private void UpdateLibraryHeaderLayout(double windowWidth)
+    {
+        var popup = windowWidth < 900;
+        var compact = windowWidth < 1400;
+        var columns = LibraryHeader.ColumnDefinitions;
+        CompactFiltersButton.Visibility = popup ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var control in new UIElement[] { SearchBox, AvatarFilterButton, ShopFilterButton, BoothTagFilterButton, FreeDownloadOnlyCheckBox, FileUpdateOnlyCheckBox, ResetFiltersButton })
+            control.Visibility = popup ? Visibility.Collapsed : Visibility.Visible;
+        if (compact)
+        {
+            columns[0].Width = new GridLength(1, GridUnitType.Star);
+            columns[1].Width = new GridLength(1, GridUnitType.Star);
+            columns[2].Width = new GridLength(1, GridUnitType.Star);
+            columns[3].Width = new GridLength(1, GridUnitType.Star);
+            columns[4].Width = new GridLength(0);
+            columns[5].Width = new GridLength(0);
+            columns[6].Width = new GridLength(0);
+            columns[7].Width = GridLength.Auto;
+            Grid.SetRow(FreeDownloadOnlyCheckBox, 2); Grid.SetColumn(FreeDownloadOnlyCheckBox, 0);
+            Grid.SetRow(FileUpdateOnlyCheckBox, 2); Grid.SetColumn(FileUpdateOnlyCheckBox, 1);
+            Grid.SetRow(ResetFiltersButton, 2); Grid.SetColumn(ResetFiltersButton, 2);
+        }
+        else
+        {
+            columns[0].Width = new GridLength(240); columns[1].Width = new GridLength(160); columns[2].Width = new GridLength(160); columns[3].Width = new GridLength(160);
+            columns[4].Width = new GridLength(150); columns[5].Width = new GridLength(140); columns[6].Width = GridLength.Auto; columns[7].Width = new GridLength(1, GridUnitType.Star);
+            Grid.SetRow(FreeDownloadOnlyCheckBox, 1); Grid.SetColumn(FreeDownloadOnlyCheckBox, 4);
+            Grid.SetRow(FileUpdateOnlyCheckBox, 1); Grid.SetColumn(FileUpdateOnlyCheckBox, 5);
+            Grid.SetRow(ResetFiltersButton, 1); Grid.SetColumn(ResetFiltersButton, 6);
+        }
+    }
+
+    private void CompactSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args) { if (SearchBox.Text != sender.Text) SearchBox.Text = sender.Text; }
+    private void CompactAvatarFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (CompactAvatarFilterBox.SelectedItem is AvatarFilterOption option) { _selectedAvatarFilterId = option.RegistrationId; AvatarFilterButtonText.Text = option.PrimaryIdentifier; _currentPage = 1; ApplyFilter(); } }
+    private void CompactShopFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (CompactShopFilterBox.SelectedItem is ShopFilterOption option) { _selectedShopFilter = option.ShopName; ShopFilterButtonText.Text = option.DisplayName; _currentPage = 1; ApplyFilter(); } }
+    private void CompactBoothTagFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (CompactBoothTagFilterBox.SelectedItem is BoothTagSummary option) { _selectedBoothTag = option.Count == 0 ? null : option.Name; BoothTagFilterButtonText.Text = _selectedBoothTag ?? "タグ指定なし"; _currentPage = 1; ApplyFilter(); } }
+    private void CompactFreeDownloadOnlyCheckBox_Changed(object sender, RoutedEventArgs e) { if (FreeDownloadOnlyCheckBox.IsChecked != CompactFreeDownloadOnlyCheckBox.IsChecked) FreeDownloadOnlyCheckBox.IsChecked = CompactFreeDownloadOnlyCheckBox.IsChecked; }
+    private void CompactFileUpdateOnlyCheckBox_Changed(object sender, RoutedEventArgs e) { if (FileUpdateOnlyCheckBox.IsChecked != CompactFileUpdateOnlyCheckBox.IsChecked) FileUpdateOnlyCheckBox.IsChecked = CompactFileUpdateOnlyCheckBox.IsChecked; }
+
+    private void UpdateDetailPanelSize(double windowWidth)
+    {
+        var compact = windowWidth < 1080;
+        var panelWidth = compact ? 300d : 420d;
+        var contentWidth = compact ? 240d : 360d;
+        DetailPanel.Width = panelWidth;
+        DetailPanelContent.Width = panelWidth;
+        DetailThumbnailBorder.Width = contentWidth;
+        DetailThumbnailBorder.Height = contentWidth;
+        DetailLinkRow.Width = contentWidth;
+        DetailEditButtonText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void AvatarMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.Avatar);
+    private void LibraryMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.Library);
+    private void ShopMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.Shop);
+    private void BoothTagsMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.BoothTags);
     private async void SettingsMenu_Click(object sender, RoutedEventArgs e)
     {
         if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
-        SetActivePage(showLibrary: false);
+        SetActivePage(AppPage.Settings);
         await Task.CompletedTask;
     }
 
@@ -1173,16 +1662,26 @@ public sealed partial class MainWindow : Window
 
     private string GetImportFolderName(string category) => GetCategoryImportSetting(category).FolderName;
 
-    private void SetActivePage(bool showLibrary)
+    private void SetActivePage(AppPage page)
     {
-        var libraryVisibility = showLibrary ? Visibility.Visible : Visibility.Collapsed;
+        var libraryVisibility = page == AppPage.Library ? Visibility.Visible : Visibility.Collapsed;
         LibraryHeader.Visibility = libraryVisibility; LibraryToolbar.Visibility = libraryVisibility;
         LibraryContent.Visibility = libraryVisibility; LibraryPager.Visibility = libraryVisibility;
-        SettingsPage.Visibility = showLibrary ? Visibility.Collapsed : Visibility.Visible;
-        LibraryMenuButton.Background = new SolidColorBrush(showLibrary ? BoothAccentColor : Microsoft.UI.Colors.Transparent);
-        LibraryMenuButton.Foreground = new SolidColorBrush(showLibrary ? Microsoft.UI.Colors.White : BoothAccentColor);
-        SettingsMenuButton.Background = new SolidColorBrush(showLibrary ? Microsoft.UI.Colors.Transparent : BoothAccentColor);
-        SettingsMenuButton.Foreground = new SolidColorBrush(showLibrary ? BoothAccentColor : Microsoft.UI.Colors.White);
+        AvatarPage.Visibility = page == AppPage.Avatar ? Visibility.Visible : Visibility.Collapsed;
+        ShopPage.Visibility = page == AppPage.Shop ? Visibility.Visible : Visibility.Collapsed;
+        BoothTagsPage.Visibility = page == AppPage.BoothTags ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPage.Visibility = page == AppPage.Settings ? Visibility.Visible : Visibility.Collapsed;
+        SetMenuAppearance(AvatarMenuButton, page == AppPage.Avatar);
+        SetMenuAppearance(LibraryMenuButton, page == AppPage.Library);
+        SetMenuAppearance(ShopMenuButton, page == AppPage.Shop);
+        SetMenuAppearance(BoothTagsMenuButton, page == AppPage.BoothTags);
+        SetMenuAppearance(SettingsMenuButton, page == AppPage.Settings);
+    }
+
+    private static void SetMenuAppearance(Button button, bool active)
+    {
+        button.Background = new SolidColorBrush(active ? BoothAccentColor : Microsoft.UI.Colors.Transparent);
+        button.Foreground = new SolidColorBrush(active ? Microsoft.UI.Colors.White : BoothAccentColor);
     }
 
     private async void DetailDialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
@@ -1335,10 +1834,15 @@ public sealed partial class MainWindow : Window
         _selectedCategory = AllCategories;
         _selectedAvatarFilterId = null;
         AvatarFilterButtonText.Text = "すべての対応アバター";
+        _selectedPurchasedPackType = null;
+        FreeDownloadOnlyCheckBox.IsChecked = false;
+        _showFileUpdatesOnly = false;
+        FileUpdateOnlyCheckBox.IsChecked = false;
         _selectedShopFilter = _detailItem.ShopName;
         ShopFilterButtonText.Text = _detailItem.ShopName;
         foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
         _currentPage = 1;
+        SetActivePage(AppPage.Library);
         ApplyFilter();
     }
 
@@ -1363,6 +1867,35 @@ public sealed partial class MainWindow : Window
         _selectedCategory = AllCategories;
         foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
         _currentPage = 1;
+        SetActivePage(AppPage.Library);
+        ApplyFilter();
+    }
+
+    private void BoothTagChip_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: DetailTagChip chip }) return;
+        ApplyBoothTagNavigationFilter(chip.Text);
+    }
+
+    private void BoothTagGrid_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not BoothTagSummary tag) return;
+        ApplyBoothTagNavigationFilter(tag.Name);
+    }
+
+    private void ApplyBoothTagNavigationFilter(string tagName)
+    {
+        _selectedBoothTag = tagName;
+        BoothTagFilterButtonText.Text = tagName;
+        SearchBox.Text = string.Empty;
+        _selectedCategory = AllCategories;
+        _selectedAvatarFilterId = null;
+        AvatarFilterButtonText.Text = "すべての対応アバター";
+        _selectedShopFilter = null;
+        ShopFilterButtonText.Text = "すべてのショップ";
+        foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
+        _currentPage = 1;
+        SetActivePage(AppPage.Library);
         ApplyFilter();
     }
 

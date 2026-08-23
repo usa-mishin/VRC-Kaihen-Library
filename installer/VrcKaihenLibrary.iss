@@ -8,7 +8,7 @@
   #error OutputDir must be supplied with /DOutputDir=...
 #endif
 
-#define AppName "VRC改変ライブラリ"
+#define AppName "VRC改変ライブラリ（BLM拡張）"
 #define AppExeName "VrcKaihenLibrary.exe"
 
 [Setup]

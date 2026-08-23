@@ -8,5 +8,9 @@ public sealed record AvatarProfile(
     string Name,
     string PrimaryIdentifier,
     IReadOnlyList<string> Identifiers,
-    string? BaseBodyGroup);
+    string? BaseBodyGroup,
+    bool IsUnpurchased = false,
+    string? BoothUrl = null,
+    string? ShopName = null,
+    string? ThumbnailUrl = null);
 public sealed record CompatibilityMatch(string AvatarRegistrationId, string AvatarName, string Evidence, bool ThroughBaseBody);

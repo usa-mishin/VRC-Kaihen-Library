@@ -1,4 +1,4 @@
-# VRC改変ライブラリ（VrcKaihenLibrary）
+# VRC改変ライブラリ（BLM拡張）（VrcKaihenLibrary）
 
 BOOTH Library Manager（BLM）が管理する VRChat 向け商品を整理し、Unity プロジェクトへの導入を支援する Windows デスクトップアプリです。
 
