@@ -39,23 +39,29 @@ public sealed class AvatarFilterOption
     public string PrimaryIdentifier { get; set; } = string.Empty;
     public string? ThumbnailUrl { get; set; }
 }
-public sealed class ShopFilterOption
+public sealed class ShopFilterOption : INotifyPropertyChanged
 {
     public ShopFilterOption(string? shopName, string displayName, string? thumbnailUrl = null) { ShopName = shopName; DisplayName = displayName; ThumbnailUrl = thumbnailUrl; }
     public string? ShopName { get; }
     public string DisplayName { get; }
     public string? ThumbnailUrl { get; }
+    private double _cardWidth = 260;
+    public double CardWidth { get => _cardWidth; set { if (Math.Abs(_cardWidth - value) > 0.1) { _cardWidth = value; PropertyChanged?.Invoke(this, new(nameof(CardWidth))); } } }
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
-public sealed class BoothTagSummary
+public sealed class BoothTagSummary : INotifyPropertyChanged
 {
     public BoothTagSummary() { }
     public BoothTagSummary(string name, int count) { Name = name; Count = count; }
     public string Name { get; set; } = string.Empty;
     public int Count { get; set; }
     public string CountText => $"{Count:N0}件";
+    private double _cardWidth = 250;
+    public double CardWidth { get => _cardWidth; set { if (Math.Abs(_cardWidth - value) > 0.1) { _cardWidth = value; PropertyChanged?.Invoke(this, new(nameof(CardWidth))); } } }
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
-public sealed class AvatarCardItem
+public sealed class AvatarCardItem : INotifyPropertyChanged
 {
     public AvatarCardItem() { }
     public AvatarCardItem(AvatarProfile profile, string displayName, string shopName, string? thumbnailUrl, LibraryItem? sourceItem)
@@ -71,6 +77,10 @@ public sealed class AvatarCardItem
     public Visibility FileUpdateBadgeVisibility => SourceItem?.FileUpdateBadgeVisibility ?? Visibility.Collapsed;
     public DateTimeOffset? RegisteredAt => SourceItem?.RegisteredAt;
     public DateTimeOffset? UpdatedAt => SourceItem?.UpdatedAt;
+    private double _cardWidth = 210;
+    public double CardWidth { get => _cardWidth; set { if (Math.Abs(_cardWidth - value) > 0.1) { _cardWidth = value; PropertyChanged?.Invoke(this, new(nameof(CardWidth))); PropertyChanged?.Invoke(this, new(nameof(CardHeight))); } } }
+    public double CardHeight => CardWidth + 86;
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 public sealed class UnityPackageEntry
 {
@@ -375,6 +385,7 @@ public sealed partial class MainWindow : Window
             _ => cards.OrderByDescending(x => x.RegisteredAt ?? DateTimeOffset.MinValue)
         };
         foreach (var card in cards) VisibleAvatarCards.Add(card);
+        if (AvatarGrid?.ActualWidth > 0) UpdateOverviewCardWidths(AvatarGrid, AvatarGrid.ActualWidth);
     }
 
     private void PopulateShopCards()
@@ -383,6 +394,7 @@ public sealed partial class MainWindow : Window
         VisibleShopCards.Clear();
         foreach (var shop in ShopFilterOptions.Skip(1).Where(x => string.IsNullOrEmpty(query) || Contains(x.DisplayName, query)))
             VisibleShopCards.Add(shop);
+        if (ShopGrid?.ActualWidth > 0) UpdateOverviewCardWidths(ShopGrid, ShopGrid.ActualWidth);
     }
 
     private void PopulateBoothTags()
@@ -400,6 +412,7 @@ public sealed partial class MainWindow : Window
         foreach (var tag in counts.Where(pair => string.IsNullOrEmpty(query) || Contains(pair.Key, query))
                      .OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key, StringComparer.CurrentCultureIgnoreCase))
             VisibleBoothTags.Add(new BoothTagSummary(tag.Key, tag.Value));
+        if (BoothTagGrid?.ActualWidth > 0) UpdateOverviewCardWidths(BoothTagGrid, BoothTagGrid.ActualWidth);
     }
 
     private void PopulateBoothTagFilterOptions()
@@ -1504,6 +1517,27 @@ public sealed partial class MainWindow : Window
 
     private void ItemsGrid_SizeChanged(object sender, SizeChangedEventArgs e)
         => UpdateItemCardWidths(e.NewSize.Width);
+
+    private void OverviewGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is GridView grid) UpdateOverviewCardWidths(grid, e.NewSize.Width);
+    }
+
+    private void UpdateOverviewCardWidths(GridView grid, double gridWidth)
+    {
+        const double cardOuterSpacing = 14;
+        var minimumCardWidth = grid == AvatarGrid ? 180d : grid == ShopGrid ? 240d : 220d;
+        var usableWidth = Math.Max(minimumCardWidth + cardOuterSpacing, gridWidth - 2);
+        var columns = Math.Max(1, (int)Math.Floor(usableWidth / (minimumCardWidth + cardOuterSpacing)));
+        var cardWidth = Math.Max(minimumCardWidth, Math.Floor(usableWidth / columns) - cardOuterSpacing);
+
+        if (grid == AvatarGrid)
+            foreach (var card in VisibleAvatarCards) card.CardWidth = cardWidth;
+        else if (grid == ShopGrid)
+            foreach (var card in VisibleShopCards) card.CardWidth = cardWidth;
+        else if (grid == BoothTagGrid)
+            foreach (var card in VisibleBoothTags) card.CardWidth = cardWidth;
+    }
 
     private void UpdateItemCardWidths(double gridWidth)
     {

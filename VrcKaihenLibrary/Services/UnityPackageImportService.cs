@@ -66,7 +66,7 @@ public sealed class UnityPackageImportService
             reportProgress?.Invoke(new(6, "Unityパッケージを検査しています"));
             ValidateArchiveEntriesWithTar(sourcePackagePath);
             reportProgress?.Invoke(new(15, "Unityパッケージを展開しています"));
-            RunTar("-xzf", sourcePackagePath, "-C", stagingRoot);
+            RunTarFromArchive(sourcePackagePath, "-xzf", "-", "-C", stagingRoot);
             reportProgress?.Invoke(new(40, "配置先を変更しています"));
 
             var pathnameFiles = Directory.EnumerateFiles(stagingRoot, "pathname", SearchOption.AllDirectories).ToArray();
@@ -112,7 +112,7 @@ public sealed class UnityPackageImportService
 
     private static void ValidateArchiveEntriesWithTar(string packagePath)
     {
-        var output = RunTar("-tzf", packagePath);
+        var output = RunTarFromArchive(packagePath, "-tzf", "-");
         foreach (var entryName in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
             var normalized = entryName.Replace('\\', '/');
@@ -139,6 +139,40 @@ public sealed class UnityPackageImportService
         var standardOutput = process.StandardOutput.ReadToEnd();
         var standardError = process.StandardError.ReadToEnd();
         process.WaitForExit();
+        if (process.ExitCode != 0)
+            throw new InvalidDataException($"Unityパッケージ処理に失敗しました。\n{standardError}\n{standardOutput}".Trim());
+        return standardOutput;
+    }
+
+    private static string RunTarFromArchive(string packagePath, params string[] arguments)
+    {
+        var tarPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "tar.exe");
+        if (!File.Exists(tarPath)) throw new FileNotFoundException("Windows標準のtar.exeが見つかりません。", tarPath);
+        var startInfo = new ProcessStartInfo(tarPath)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Unityパッケージ処理を開始できませんでした。");
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+        var standardErrorTask = process.StandardError.ReadToEndAsync();
+        try
+        {
+            using var source = File.Open(packagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            source.CopyTo(process.StandardInput.BaseStream);
+        }
+        finally
+        {
+            process.StandardInput.Close();
+        }
+        process.WaitForExit();
+        var standardOutput = standardOutputTask.GetAwaiter().GetResult();
+        var standardError = standardErrorTask.GetAwaiter().GetResult();
         if (process.ExitCode != 0)
             throw new InvalidDataException($"Unityパッケージ処理に失敗しました。\n{standardError}\n{standardOutput}".Trim());
         return standardOutput;
