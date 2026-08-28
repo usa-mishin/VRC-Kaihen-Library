@@ -2447,7 +2447,7 @@ public sealed partial class MainWindow : Window
     {
         if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
         SetActivePage(AppPage.Changelog);
-        await CheckForLatestReleaseAsync(openReleasePage: true);
+        await CheckForLatestReleaseAsync();
     }
 
     private void GitHubReleasesButton_Click(object sender, RoutedEventArgs e)
@@ -2455,7 +2455,7 @@ public sealed partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
     }
 
-    private async Task CheckForLatestReleaseAsync(bool openReleasePage = false)
+    private async Task CheckForLatestReleaseAsync()
     {
         if (_updateCheckInProgress) return;
         _updateCheckInProgress = true;
@@ -2467,26 +2467,22 @@ public sealed partial class MainWindow : Window
             using var document = JsonDocument.Parse(await client.GetStringAsync(GitHubLatestReleaseApiUrl));
             var root = document.RootElement;
             var tag = root.TryGetProperty("tag_name", out var tagProperty) ? tagProperty.GetString() : null;
-            var url = root.TryGetProperty("html_url", out var urlProperty) ? urlProperty.GetString() : GitHubReleasesUrl;
             var latestText = tag?.Trim().TrimStart('v', 'V');
             var currentText = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
             if (Version.TryParse(latestText, out var latest) && Version.TryParse(currentText, out var current) && latest > current)
             {
                 LatestVersionBadge.Visibility = Visibility.Visible;
-                ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "GitHub Releasesから最新版をダウンロードできます。バージョン情報ページでリリースを開けます。", autoDismiss: true);
-                if (openReleasePage) Process.Start(new ProcessStartInfo(url ?? GitHubReleasesUrl) { UseShellExecute = true });
+                ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "バージョン情報ページのGitHub Releasesリンクから最新版をダウンロードできます。", autoDismiss: true);
             }
             else
             {
                 LatestVersionBadge.Visibility = Visibility.Collapsed;
                 ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: true);
-                if (openReleasePage) Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
             }
         }
         catch
         {
             ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: true);
-            if (openReleasePage) Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
         }
         finally
         {
