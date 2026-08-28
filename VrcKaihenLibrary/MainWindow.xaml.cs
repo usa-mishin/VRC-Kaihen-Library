@@ -531,6 +531,9 @@ public sealed partial class MainWindow : Window
 
     private async Task LoadLibraryAsync()
     {
+        // Consent is checked again at the read boundary so that a future UI event
+        // cannot accidentally access the BLM data before explicit user consent.
+        if (!_metadataStore.HasCurrentDataAccessConsent()) return;
         if (_isLibraryLoading) return;
         _isLibraryLoading = true;
         var showInitialLoading = !_hasCompletedInitialLoad;

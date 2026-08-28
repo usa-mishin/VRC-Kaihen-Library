@@ -30,6 +30,10 @@ artifacts/installer/VrcKaihenLibrary-1.0.6.0-x64-setup.exe
 
 MSIX版とEXE版は別のインストールとして扱われます。二重起動を避けるため、最初にWindowsの「インストールされているアプリ」からMSIX版をアンインストールし、その後EXE版をインストールしてください。設定DBは共通の保存場所に残るため引き継がれます。
 
+### アプリ一覧に2つ表示される場合
+
+`usa-mishin.VrcKaihenLibrary` が残っている場合は、開発用または旧版のMSIXです。MSIXとEXEはWindows上で別アプリとして登録されるため、アプリ一覧に2件表示されます。MSIX側の古いショートカットをタスクバーから起動すると、旧バージョン番号や旧アイコンが表示されます。EXE版を使用する場合は、MSIXをアンインストールしてから、`%LOCALAPPDATA%\Programs\VrcKaihenLibrary\VrcKaihenLibrary.exe` のショートカットをタスクバーへ登録し直してください。EXE版のスタートメニュー・デスクトップショートカットは`Assets\AppIcon.ico`を明示的に参照します。既存のタスクバー固定はアイコンキャッシュが残ることがあるため、固定解除後に再固定します。
+
 ## GitとGitHub Releasesの準備
 
 Git自体に特別な拡張は不要です。配布するコミットを確定し、版番号と同じタグを付けてGitHubへ送ります。

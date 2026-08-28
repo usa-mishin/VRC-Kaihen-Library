@@ -41,6 +41,7 @@ $arguments = @(
     '/p:AppxBundle=Never',
     '/p:UapAppxPackageBuildMode=SideloadOnly',
     '/p:AppxSymbolPackageEnabled=false',
+    "/p:Version=$Version",
     "/p:AppxPackageVersion=$Version",
     "/p:AppxPackageDir=$outputRoot\",
     "/p:AppxPackageSigningEnabled=$($signingEnabled.ToString().ToLowerInvariant())",

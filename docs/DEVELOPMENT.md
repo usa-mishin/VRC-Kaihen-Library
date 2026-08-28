@@ -1,6 +1,6 @@
 # 開発・引き継ぎガイド
 
-最終確認日: 2026-08-16
+最終確認日: 2026-08-29
 
 基準コミット: `f7faa0b`（`main` / `origin/main`）
 
@@ -15,7 +15,7 @@
 - 2026-08-16 に製品名、プロジェクト、名前空間、MSIX identity を `VrcKaihenManager` から `VrcKaihenLibrary` へ変更済み
 - Debug x64 のビルドと、署名済み MSIX 1.0.0.0 のインストールを確認済み
 - Release/MSIX は WinUI XAML activation のクラッシュを避けるため trimming を無効化済み
-- 現在の `main` に未コミット変更はない状態から、この文書整備を開始
+- 2026-08-29 に同意確認の読み込み境界ガードを追加し、Debug x64ビルドとEXEインストーラー 1.0.75.0 の生成を確認済み
 
 ## 最初に実行する確認
 
@@ -49,7 +49,7 @@ dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 ### データ安全性
 
 - BLM DB は必ず `Mode=ReadOnly` で開く。BLM のスキーマ変更対応は原則 `BoothLibraryReader` 内に閉じ込める。
-- BLM DBへ初めてアクセスする前に、読み取る項目、非取得項目、外部送信なし、公式との非提携を説明して明示同意を得る。利用者向け画面では「DB」だけで説明せず、「BOOTH Library ManagerがPC内に保存した商品情報」と表現し、技術的な保存場所を補足する。EXEインストーラーは対話ページで同意を必須にし、同意チェックが外れている間は「次へ」を無効化して、同意版をHKCUへ記録する。無人インストールは `/DATAACCESSCONSENT=accept` の明示指定を必須とする。持ち運び実行や別形式の配布ではアプリの初回ダイアログを表示し、同意前に `BoothLibraryReader.Read` を呼ばない。アプリ専用DBには同意内容そのものではなく同意版番号と更新日時だけを保存する。EXE版の通常アンインストールではHKCUの同意記録を削除し、再インストール時に改めて確認する。
+- BLM DBへ初めてアクセスする前に、読み取る項目、非取得項目、外部送信なし、公式との非提携を説明して明示同意を得る。利用者向け画面では「DB」だけで説明せず、「BOOTH Library ManagerがPC内に保存した商品情報」と表現し、技術的な保存場所を補足する。EXEインストーラーは対話ページで同意を必須にし、同意チェックが外れている間は「次へ」を無効化して、同意版をHKCUへ記録する。無人インストールは `/DATAACCESSCONSENT=accept` の明示指定を必須とする。持ち運び実行や別形式の配布ではアプリの初回ダイアログを表示し、同意前に `BoothLibraryReader.Read` を呼ばない。`LoadLibraryAsync` の読み込み境界でも同意状態を再確認し、将来のUIイベント追加による同意前アクセスを防止する。アプリ専用DBには同意内容そのものではなく同意版番号と更新日時だけを保存する。EXE版の通常アンインストールではHKCUの同意記録を削除し、再インストール時に改めて確認する。
 - 手動分類、対応アバター、カテゴリ別インポート先、アプリ設定は `%LOCALAPPDATA%\VrcKaihenLibrary\library.db` に保存する。
 - 未購入アバターは `avatar_profiles.is_unpurchased=1` としてアプリ専用DBだけに保存し、BOOTH商品URLとサムネイルURLも同じプロフィールに保持する。BLMの商品やDBへ追加・書き込みは行わない。同じBOOTH商品IDの購入済みアバターがBLMに現れた場合は、識別子・共通素体・対応上書きを購入済みプロフィールへ移し、未購入プロフィールを削除する。
 - 旧 `%LOCALAPPDATA%\VrcKaihenManager\library.db` は、新 DB が存在しない場合だけ SQLite backup API でコピーする。旧 DB は削除しない。
@@ -146,7 +146,7 @@ dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 
 - 開発用の自己署名証明書は、テスト PC の Local Machine `TrustedPeople` に信頼登録が必要で、管理者 PowerShell を使う。
 - `scripts/Build-Msix.ps1` が署名済みパッケージを `artifacts/msix` に生成する。
-- `Build-Msix.ps1 -Version` はビルド中だけ package manifest の版番号を置換し、終了時に元へ戻す。MSIX の更新判定に使われるため、配布のたびに版番号を増やす。
+- `Build-Msix.ps1 -Version` はビルド中だけ package manifest の版番号を置換し、MSIXのパッケージ版番号とアセンブリ表示版番号の両方へ同じ値を渡して、アプリ内のバージョン表示が `1.0.0.0` に戻らないようにする。終了時はmanifestを元へ戻す。MSIXの更新判定に使われるため、配布のたびに版番号を増やす。
 - `scripts/New-AppInstaller.ps1` は公開 HTTPS URL が決まった後の自動更新用。
 - 正式配布では自己署名証明書を使わず、信頼されたコード署名サービスまたは証明書を使う。
 

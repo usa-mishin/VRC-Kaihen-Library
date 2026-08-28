@@ -1,6 +1,6 @@
 # プライバシーポリシー
 
-最終更新日: 2026-08-28
+最終更新日: 2026-08-29
 
 VRC改変ライブラリ（BOOTH Library Manager拡張）は、BOOTH Library ManagerがPC内に保存した情報をローカルで整理する非公式デスクトップアプリです。BOOTHおよびBOOTH Library Managerの運営元との提携関係はありません。
 

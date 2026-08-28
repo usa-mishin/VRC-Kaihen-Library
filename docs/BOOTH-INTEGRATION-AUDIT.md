@@ -1,6 +1,6 @@
 # BOOTH Library Manager 連携監査
 
-最終確認日: 2026-08-28
+最終確認日: 2026-08-29
 
 ## 結論
 
@@ -23,7 +23,7 @@ BOOTH公式ガイドライン（2026年7月8日改定）は、ユーザーの利
 - [x] インストーラーで、DBパス、取得項目、非取得項目、読み取り専用、通信、非公式性を説明して明示同意を必須にし、未チェック中は「次へ」を無効化する。
 - [x] 無人インストールでは `/DATAACCESSCONSENT=accept` の明示指定を必須にする。
 - [x] インストーラー同意がない持ち運び実行等では、アプリ初回起動時に同じ説明と明示同意を求める。
-- [x] 同意前に `BoothLibraryReader.Read` を呼ばず、拒否時はDBへアクセスせず終了する。
+- [x] 同意前に `BoothLibraryReader.Read` を呼ばず、拒否時はDBへアクセスせず終了する。`LoadLibraryAsync` の読み込み境界でも同意状態を再確認する。
 - [x] 同意はアプリ内のポリシーページから取り消せる。取消時にBLM DBや商品ファイルを削除しない。
 - [x] EXE版のアンインストール時はインストーラー側の同意記録を削除し、再インストール時に改めて確認する。分類等の設定DBは削除しない。
 - [x] 同意記録は説明の版番号と更新日時だけをローカル保存する。
@@ -56,6 +56,13 @@ BOOTH公式ガイドライン（2026年7月8日改定）は、ユーザーの利
 - アプリソースに `HttpClient`、`WebClient`、`GetAsync`、`PostAsync`、`SendAsync` による独自通信処理は存在しなかった。
 - Inno Setup 6.7.3でインストーラー1.0.72.0を正常生成した。利用者向け画面では「DB」を「BOOTH Library ManagerがPC内に保存した商品情報」と表現し、未チェック中の「次へ」無効化を再確認した。SHA-256は `ECC0D094ECD018511BCB94B57A46D148CECDEEAE9381E211CBF922BC8D8CC953`。
 - インストーラーのAuthenticode状態は `NotSigned`。信頼されたコード署名証明書の取得・署名・タイムスタンプは正式公開前の配布工程タスクとして残る。
+
+## 2026-08-29 追加検証
+
+- `LoadLibraryAsync` の読み込み境界に同意状態の再確認を追加し、初回起動イベント以外のUI経路からも同意前に `BoothLibraryReader.Read` が実行されないことをソースレビューで確認した。
+- 追加実装後に `dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64 --no-restore` を実行し、警告0・エラー0を確認した。
+- 最新の監査実装と透過アイコンを含むEXEインストーラー `VrcKaihenLibrary-1.0.75.0-x64-setup.exe` をInno Setup 6.7.3で生成した。SHA-256は `28094A7420BCC080B8D1B3DA8AA742C3A54EF0F0A63E81791CE0029DD2B52EEB`。
+- フラットアイコン差し替え後のEXEインストーラー `VrcKaihenLibrary-1.0.76.0-x64-setup.exe` をInno Setup 6.7.3で再生成し、成果物へ最新の監査実装とアイコンが含まれることを確認した。SHA-256は `40E70C8400D822EE4AD9FA428CC1B681512C36F1754E94056445C7C9181B3637`。
 
 ## BOOTHサポートへの確認文面
 
