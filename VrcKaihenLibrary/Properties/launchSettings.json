@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "VrcKaihenLibrary (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "VrcKaihenLibrary (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
