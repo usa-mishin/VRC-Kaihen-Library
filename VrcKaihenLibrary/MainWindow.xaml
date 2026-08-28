@@ -456,10 +456,8 @@
         <Grid x:Name="ChangelogPage" Grid.Column="1" Grid.RowSpan="4" Visibility="Collapsed" Padding="28,24">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="820" HorizontalAlignment="Left" Spacing="18" Padding="0,0,12,28">
-                    <StackPanel Spacing="5"><TextBlock Text="変更履歴" Style="{StaticResource TitleTextBlockStyle}"/><TextBlock Text="主な機能追加と改善内容を簡潔に掲載しています。" Opacity="0.72" TextWrapping="Wrap"/></StackPanel>
-                    <Border CornerRadius="10" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Spacing="8"><TextBlock Text="最新版" Foreground="#FFC94F78" FontWeight="SemiBold"/><TextBlock Text="• 人気アバターの既定識別タグを拡充&#x0a;• ダウンロードファイルの階層表示、画像プレビュー、旧バージョン判定を改善&#x0a;• 一覧検索、表示設定、詳細パネルの操作性を改善" TextWrapping="Wrap" LineHeight="23"/></StackPanel></Border>
-                    <Border CornerRadius="10" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Spacing="8"><TextBlock Text="これまでの主な更新" FontWeight="SemiBold"/><TextBlock Text="• アバター・改変アイテム・ショップ・BOOTHタグの管理画面を追加&#x0a;• UnityPackageの安全な展開と分類別インポートに対応&#x0a;• 未購入アバター、共通素体、対応アバター手動設定に対応&#x0a;• 初回ガイド、プライバシー・権限説明、処理通知を追加" TextWrapping="Wrap" LineHeight="23"/></StackPanel></Border>
-                    <TextBlock Text="詳細な更新情報は、配布元のリリース案内をご確認ください。" FontSize="12" Opacity="0.65" TextWrapping="Wrap"/>
+                    <StackPanel Spacing="5"><TextBlock Text="バージョン情報" Style="{StaticResource TitleTextBlockStyle}"/><TextBlock Text="現在のバージョンと公開リリースを確認できます。" Opacity="0.72" TextWrapping="Wrap"/></StackPanel>
+                    <Border CornerRadius="10" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Spacing="10"><TextBlock Text="公開リリース" Foreground="#FFC94F78" FontWeight="SemiBold"/><TextBlock Text="最新版の確認、インストーラーのダウンロード、リリース内容の確認はGitHubで行えます。" TextWrapping="Wrap"/><HyperlinkButton Content="GitHub Releasesを開く" Click="GitHubReleasesButton_Click" HorizontalAlignment="Left" Padding="0,4"/></StackPanel></Border>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

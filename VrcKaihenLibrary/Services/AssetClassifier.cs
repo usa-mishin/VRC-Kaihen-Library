@@ -25,6 +25,17 @@ public static class AssetClassifier
 
     public static string Classify(LibraryItem item)
     {
+        // Material hints are only a fallback for items that have not been classified yet.
+        // Never override a confirmed BOOTH category (including texture).
+        var isUnclassified = string.IsNullOrWhiteSpace(item.Category)
+            || item.Category == AssetCategories.Other
+            || item.Category == AssetCategories.Unclassified;
+        var materialSource = string.Join("\n", item.Name, item.Tags, item.OriginalCategory);
+        if (isUnclassified && (materialSource.Contains("マテリアル", StringComparison.OrdinalIgnoreCase)
+            || materialSource.Contains("material", StringComparison.OrdinalIgnoreCase)
+            || materialSource.Contains("matcap", StringComparison.OrdinalIgnoreCase)))
+            return "マテリアル";
+
         foreach (var (boothSubcategory, appCategory) in BoothCategoryRules)
             if (item.OriginalCategory.Contains(boothSubcategory, StringComparison.OrdinalIgnoreCase))
                 return appCategory;

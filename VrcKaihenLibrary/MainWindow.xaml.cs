@@ -16,7 +16,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using VrcKaihenLibrary.Models;
@@ -317,6 +319,8 @@ public sealed partial class MainWindow : Window
     private const double SmallDetailPanelWidth = 340d;
     private const double MediumDetailPanelWidth = 420d;
     private const double LargeDetailPanelWidth = 560d;
+    private const string GitHubReleasesUrl = "https://github.com/usa-mishin/VRC-Kaihen-Library/releases";
+    private const string GitHubLatestReleaseApiUrl = "https://api.github.com/repos/usa-mishin/VRC-Kaihen-Library/releases/latest";
     private double? _preferredDetailPanelWidth;
     private bool _isApplyingDetailPanelSizeSetting = true;
     private string _cardSizePreset = "Medium";
@@ -2441,6 +2445,43 @@ public sealed partial class MainWindow : Window
     {
         if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
         SetActivePage(AppPage.Changelog);
+        await CheckForLatestReleaseAsync();
+    }
+
+    private void GitHubReleasesButton_Click(object sender, RoutedEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
+    }
+
+    private async Task CheckForLatestReleaseAsync()
+    {
+        ShowOperationPopup(OperationPopupKind.Progress, "リリースを確認中", "GitHubの公開リリースを確認しています…");
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("VrcKaihenLibrary");
+            using var document = JsonDocument.Parse(await client.GetStringAsync(GitHubLatestReleaseApiUrl));
+            var root = document.RootElement;
+            var tag = root.TryGetProperty("tag_name", out var tagProperty) ? tagProperty.GetString() : null;
+            var url = root.TryGetProperty("html_url", out var urlProperty) ? urlProperty.GetString() : GitHubReleasesUrl;
+            var latestText = tag?.Trim().TrimStart('v', 'V');
+            var currentText = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
+            if (Version.TryParse(latestText, out var latest) && Version.TryParse(currentText, out var current) && latest > current)
+            {
+                ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "GitHub Releasesから最新版をダウンロードできます。ブラウザーでリリースページを開きます。", autoDismiss: true);
+                Process.Start(new ProcessStartInfo(url ?? GitHubReleasesUrl) { UseShellExecute = true });
+            }
+            else
+            {
+                ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。リリース一覧をブラウザーで開きます。", autoDismiss: true);
+                Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
+            }
+        }
+        catch
+        {
+            ShowOperationPopup(OperationPopupKind.Information, "リリースページを開きます", "最新バージョンの自動確認に失敗したため、GitHubのリリース一覧を開きます。", autoDismiss: true);
+            Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
+        }
     }
 
     private void PopulateImportSettings()
