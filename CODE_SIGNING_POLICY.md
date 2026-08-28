@@ -6,7 +6,7 @@ Free code signing provided by [SignPath.io](https://signpath.io/), certificate b
 
 This policy applies to the source code in [usa-mishin/VRC-Kaihen-Library](https://github.com/usa-mishin/VRC-Kaihen-Library) and to release artifacts built from its tagged commits. The initial signed artifact is the self-contained x64 EXE installer produced by `scripts/Build-ExeInstaller.ps1`.
 
-All signed artifacts are built by the repository's GitHub Actions workflow. Each signing request is tied to a tagged source commit and requires manual approval. The installer and application metadata use the project name `VRC改変ライブラリ（BLM拡張）` and the same four-part version.
+All signed artifacts are built by the repository's GitHub Actions workflow. Each signing request is tied to a tagged source commit and requires manual approval. The installer and application metadata use the project name `VRC改変ライブラリ（BOOTH Library Manager拡張）` and the same four-part version.
 
 ## Team roles
 

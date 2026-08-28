@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:VrcKaihenLibrary.Controls"
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
-    Title="VRC改変ライブラリ（BLM拡張）">
+    Title="VRC改変ライブラリ（BOOTH Library Manager拡張）">
     <Window.SystemBackdrop><MicaBackdrop /></Window.SystemBackdrop>
     <Grid x:Name="RootLayout" Loaded="RootLayout_Loaded" SizeChanged="RootLayout_SizeChanged">
         <Grid.Resources>
