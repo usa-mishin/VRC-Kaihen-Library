@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -10,14 +11,46 @@ namespace VrcKaihenLibrary.Services;
 public static partial class AvatarCompatibilityService
 {
     private static readonly HashSet<string> IgnoredWords = new(StringComparer.OrdinalIgnoreCase)
-    { "オリジナル", "モデル", "avatar", "original", "model", "VRChat", "PC", "Mobile", "版" };
+    {
+        "オリジナル", "モデル", "アバター", "キャラクター", "キャラクター素体", "対応", "専用", "商品", "販売", "ダウンロード",
+        "女性型", "男性型", "想定", "搭載", "もちふぃった", "avatar", "avatars", "original", "model", "character",
+        "VRChat", "VRC", "PC", "Quest", "Mobile", "Android", "iOS", "Cluster", "版", "RE",
+        "Unity", "UnityPackage", "SDK", "PhysBone", "PhysBones", "Humanoid", "Blender", "FBX", "VRM", "ver", "version",
+        "無料", "無料あり", "有料", "セール中", "free", "sale", "off"
+    };
 
-    [GeneratedRegex(@"[\p{L}\p{N}_-]{2,}")]
+    [GeneratedRegex(@"[\p{L}\p{N}_-]+")]
     private static partial Regex WordPattern();
+
+    [GeneratedRegex(@"^(?:v(?:er(?:sion)?)?\.?\d+(?:[._-]\d+)*[a-z]?|\d+(?:[._-]\d+)+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex VersionPattern();
+
+    [GeneratedRegex(@"^(?:\d+(?:\.\d+)?(?:円|%|％|off)|\d{4}年?\d{1,2}月?\d{0,2}日?)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PriceOrDatePattern();
+
+    [GeneratedRegex(@"(?:発売記念|販売記念|期間限定|数量限定|周年記念|記念セール|セール価格|割引|キャンペーン|今だけ|月末まで|sale|anniversary|limited|discount)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PromotionPattern();
+
+    [GeneratedRegex(@"^(?:(?:[_-]?(?:vrchat|vrc|pc|quest|mobile|android|ios|cluster|avatar|model|unity|sdk|physbones?|humanoid|blender|fbx|vrm))|(?:[_-]?(?:対応|専用|向け|用|版)))+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex GenericOnlyPattern();
+
+    [GeneratedRegex(@"(?:オリジナル|original)?3d(?:モデル|model|アバター|avatar)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex GenericModelPhrasePattern();
+
+    [GeneratedRegex(@"(?:[_-]v(?:er(?:sion)?)?\.?\d+(?:[._-]\d+)*)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TrailingVersionPattern();
+
+    [GeneratedRegex(@"[（(](?<reading>[^）)]*[↑↓←→][^）)]*)[）)]", RegexOptions.CultureInvariant)]
+    private static partial Regex DecoratedReadingPattern();
+
+    [GeneratedRegex(@"[^\p{L}\p{N}_-]+", RegexOptions.CultureInvariant)]
+    private static partial Regex IdentifierDecorationPattern();
 
     public static string GenerateDefaultPrimaryIdentifier(LibraryItem item)
     {
-        var candidates = WordPattern().Matches(item.Name).Select(x => x.Value)
+        if (DefaultAvatarIdentifierCatalog.TryGet(item.BoothItemId, out var knownAvatar))
+            return knownAvatar.PrimaryIdentifier;
+        var candidates = GetNameCandidates(item.Name)
             .Where(IsUsefulName).ToList();
         return candidates.FirstOrDefault(x => ContainsJapanese(x))
             ?? candidates.FirstOrDefault()
@@ -26,13 +59,23 @@ public static partial class AvatarCompatibilityService
 
     public static IReadOnlyList<string> GenerateDefaultIdentifiers(LibraryItem item)
     {
-        var values = WordPattern().Matches(item.Name).Select(x => x.Value)
+        if (DefaultAvatarIdentifierCatalog.TryGet(item.BoothItemId, out var knownAvatar))
+            return new[] { knownAvatar.PrimaryIdentifier }
+                .Concat(knownAvatar.Identifiers)
+                .Append(knownAvatar.BoothItemId.ToString())
+                .Where(IsUsefulNameOrBoothId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        var values = GetNameCandidates(item.Name)
             .Where(IsUsefulName)
             .ToList();
         if (item.BoothItemId is long id)
             values.Add(id.ToString());
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
+
+    private static bool IsUsefulNameOrBoothId(string value) =>
+        value.All(char.IsDigit) || IsUsefulName(value);
 
     public static IReadOnlyList<CompatibilityMatch> Detect(LibraryItem item, IReadOnlyList<AvatarProfile> profiles, IReadOnlyDictionary<string, HashSet<string>> sharedBodyRelations)
     {
@@ -62,6 +105,25 @@ public static partial class AvatarCompatibilityService
         return result;
     }
 
+    public static IReadOnlyList<string> DetectAvatarNamesFromFileName(
+        string fileName, IReadOnlyList<AvatarProfile> profiles)
+    {
+        var stem = Path.GetFileNameWithoutExtension(fileName);
+        if (string.IsNullOrWhiteSpace(stem)) return [];
+        return profiles
+            .Where(profile => GetMatchingIdentifiers(profile)
+                .Where(identifier => IsUsefulName(identifier)
+                    && !identifier.All(char.IsDigit)
+                    && !identifier.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(identifier => identifier.Length)
+                .Any(identifier => IsMatch(stem, identifier)))
+            .Select(profile => profile.PrimaryIdentifier)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
     private static IEnumerable<string> GetMatchingIdentifiers(AvatarProfile profile) =>
         new[] { profile.PrimaryIdentifier }.Concat(profile.Identifiers)
             .Where(x => !string.IsNullOrWhiteSpace(x));
@@ -85,8 +147,36 @@ public static partial class AvatarCompatibilityService
         }
     }
 
-    private static bool IsUsefulName(string value) =>
-        !IgnoredWords.Contains(value) && !value.Contains("3D", StringComparison.OrdinalIgnoreCase);
+    private static string CleanCandidate(string value)
+    {
+        value = value.Normalize(NormalizationForm.FormKC).Trim().Trim('_', '-');
+        return TrailingVersionPattern().Replace(value, string.Empty).Trim().Trim('_', '-');
+    }
+
+    private static IEnumerable<string> GetNameCandidates(string name)
+    {
+        var normalized = name.Normalize(NormalizationForm.FormKC);
+        foreach (Match match in DecoratedReadingPattern().Matches(normalized))
+        {
+            var joinedReading = IdentifierDecorationPattern().Replace(match.Groups["reading"].Value, string.Empty);
+            if (!string.IsNullOrWhiteSpace(joinedReading)) yield return CleanCandidate(joinedReading);
+        }
+
+        var withoutDecoratedReadings = DecoratedReadingPattern().Replace(normalized, " ");
+        foreach (Match match in WordPattern().Matches(withoutDecoratedReadings))
+            yield return CleanCandidate(match.Value);
+    }
+
+    private static bool IsUsefulName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !value.Any(char.IsLetter)) return false;
+        if (value.Length < 2 && !ContainsJapanese(value)) return false;
+        if (IgnoredWords.Contains(value) || GenericModelPhrasePattern().IsMatch(value)) return false;
+        return !VersionPattern().IsMatch(value)
+            && !PriceOrDatePattern().IsMatch(value)
+            && !PromotionPattern().IsMatch(value)
+            && !GenericOnlyPattern().IsMatch(value);
+    }
 
     private static bool ContainsJapanese(string value) => value.Any(c =>
         c is >= '\u3040' and <= '\u30ff' or >= '\u3400' and <= '\u9fff');

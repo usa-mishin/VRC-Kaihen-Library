@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -12,7 +14,10 @@ public sealed record ImportPreparationProgress(int Percentage, string Message);
 
 public sealed class UnityPackageImportService
 {
-    private const string RepackFormatVersion = "bsdtar-gzip-store-fast-work-v2";
+    private const string RepackFormatVersion = "safe-dotnet-extract-gzip-store-v4-ascii-cache-name";
+    private const int MaximumArchiveEntries = 100_000;
+    private const long MaximumExpandedBytes = 20L * 1024 * 1024 * 1024;
+    private const long MinimumExpansionAllowance = 512L * 1024 * 1024;
 
     public string PrepareForImport(
         LibraryItem item,
@@ -20,14 +25,9 @@ public sealed class UnityPackageImportService
         string? targetFolderName,
         Action<ImportPreparationProgress>? reportProgress = null)
     {
-        if (string.IsNullOrWhiteSpace(targetFolderName))
-        {
-            reportProgress?.Invoke(new(100, "元のUnityパッケージを使用します"));
-            return sourcePackagePath;
-        }
-
-        reportProgress?.Invoke(new(2, "キャッシュを確認しています"));
         var sourceInfo = new FileInfo(sourcePackagePath);
+        if (!sourceInfo.Exists) throw new FileNotFoundException("Unityパッケージが見つかりません。", sourcePackagePath);
+        reportProgress?.Invoke(new(2, "キャッシュを確認しています"));
         var libraryRoot = Path.GetDirectoryName(item.FolderPath)
             ?? throw new DirectoryNotFoundException("BLMライブラリの保存先を特定できません。");
         var sharedCacheRoot = Path.Combine(libraryRoot, ".VrcKaihenLibraryImportCache");
@@ -40,18 +40,41 @@ public sealed class UnityPackageImportService
         }
         var cacheRoot = Path.Combine(sharedCacheRoot, item.RegistrationId);
         Directory.CreateDirectory(cacheRoot);
-        try { File.SetAttributes(sharedCacheRoot, File.GetAttributes(sharedCacheRoot) | FileAttributes.Hidden); }
+        try { File.SetAttributes(sharedCacheRoot, File.GetAttributes(sharedCacheRoot) & ~FileAttributes.Hidden); }
         catch { }
 
         var cacheKey = $"{RepackFormatVersion}|{sourceInfo.FullName}|{sourceInfo.Length}|{sourceInfo.LastWriteTimeUtc.Ticks}|{targetFolderName}";
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cacheKey)))[..16];
-        var safeName = string.Concat(Path.GetFileNameWithoutExtension(sourceInfo.Name)
-            .Select(character => Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
-        var destinationPath = Path.Combine(cacheRoot, $"{safeName}.{hash}.unitypackage");
+        // Unity 2022.3 passes the package filename through its bundled 7-Zip process. On some
+        // Windows locales, non-ASCII filenames are corrupted while Unity creates its short path,
+        // causing a valid archive to fail with "Couldn't decompress package". Keep the complete
+        // path handed to Unity ASCII-only; the original download is never renamed or modified.
+        var destinationPath = Path.Combine(cacheRoot, $"package-{hash}.unitypackage");
         if (File.Exists(destinationPath))
         {
             reportProgress?.Invoke(new(100, "準備済みキャッシュを使用します"));
             return destinationPath;
+        }
+
+        if (string.IsNullOrWhiteSpace(targetFolderName))
+        {
+            reportProgress?.Invoke(new(5, "Unityパッケージを安全に検査しています"));
+            ValidateArchiveSafely(sourcePackagePath, sourceInfo.Length, progress =>
+                reportProgress?.Invoke(new(5 + (int)(progress * 85), "Unityパッケージを安全に検査しています")));
+            var directCopyTemporaryPath = destinationPath + $".copying-{Guid.NewGuid():N}";
+            try
+            {
+                reportProgress?.Invoke(new(90, "Unity向けの安全なファイル名で準備しています"));
+                CopyFileWithProgress(sourcePackagePath, directCopyTemporaryPath, percentage =>
+                    reportProgress?.Invoke(new(90 + (int)(percentage * 10), "Unity向けの安全なファイル名で準備しています")));
+                File.Move(directCopyTemporaryPath, destinationPath);
+                reportProgress?.Invoke(new(100, "Unityへの受け渡し準備が完了しました"));
+                return destinationPath;
+            }
+            finally
+            {
+                TryDeleteFile(directCopyTemporaryPath);
+            }
         }
 
         var workingRoot = Path.Combine(Path.GetTempPath(), "VrcKaihenLibrary", "UnityPackagePreparation", Guid.NewGuid().ToString("N"));
@@ -63,10 +86,9 @@ public sealed class UnityPackageImportService
 
         try
         {
-            reportProgress?.Invoke(new(6, "Unityパッケージを検査しています"));
-            ValidateArchiveEntriesWithTar(sourcePackagePath);
-            reportProgress?.Invoke(new(15, "Unityパッケージを展開しています"));
-            RunTarFromArchive(sourcePackagePath, "-xzf", "-", "-C", stagingRoot);
+            reportProgress?.Invoke(new(6, "Unityパッケージを安全に検査・展開しています"));
+            ExtractArchiveSafely(sourcePackagePath, stagingRoot, sourceInfo.Length, progress =>
+                reportProgress?.Invoke(new(6 + (int)(progress * 34), "Unityパッケージを安全に検査・展開しています")));
             reportProgress?.Invoke(new(40, "配置先を変更しています"));
 
             var pathnameFiles = Directory.EnumerateFiles(stagingRoot, "pathname", SearchOption.AllDirectories).ToArray();
@@ -110,72 +132,109 @@ public sealed class UnityPackageImportService
         }
     }
 
-    private static void ValidateArchiveEntriesWithTar(string packagePath)
+    private static void ExtractArchiveSafely(string packagePath, string stagingRoot, long compressedBytes, Action<double>? reportProgress)
     {
-        var output = RunTarFromArchive(packagePath, "-tzf", "-");
-        foreach (var entryName in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        var expansionLimit = GetExpansionLimit(compressedBytes);
+        var root = Path.GetFullPath(stagingRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        long expandedBytes = 0;
+        var entryCount = 0;
+        using var packageStream = File.Open(packagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var gzipStream = new GZipStream(packageStream, CompressionMode.Decompress, leaveOpen: false);
+        using var reader = new TarReader(gzipStream, leaveOpen: false);
+        TarEntry? entry;
+        while ((entry = reader.GetNextEntry()) is not null)
         {
-            var normalized = entryName.Replace('\\', '/');
-            if (normalized.StartsWith("/", StringComparison.Ordinal)
-                || normalized.Split('/', StringSplitOptions.RemoveEmptyEntries).Any(part => part == ".."))
-                throw new InvalidDataException("安全でないパスを含むUnityパッケージは展開できません。");
+            entryCount++;
+            if (entryCount > MaximumArchiveEntries)
+                throw new InvalidDataException($"Unityパッケージの項目数が安全上の上限（{MaximumArchiveEntries:N0}件）を超えています。");
+            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile or TarEntryType.Directory))
+                throw new InvalidDataException($"リンクまたは特殊項目を含むUnityパッケージは展開できません: {entry.Name}");
+
+            var destinationPath = ResolveSafeArchivePath(root, entry.Name);
+            if (entry.EntryType == TarEntryType.Directory)
+            {
+                Directory.CreateDirectory(destinationPath);
+                continue;
+            }
+
+            if (entry.Length < 0 || expandedBytes > expansionLimit - entry.Length)
+                throw new InvalidDataException($"Unityパッケージの展開容量が安全上の上限（{expansionLimit / 1024 / 1024:N0}MB）を超えています。");
+            expandedBytes += entry.Length;
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            if (entry.DataStream is null)
+                throw new InvalidDataException($"内容を読み取れないUnityパッケージ項目があります: {entry.Name}");
+            using var destination = File.Open(destinationPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            entry.DataStream.CopyTo(destination);
+            reportProgress?.Invoke(expansionLimit == 0 ? 1 : Math.Min(0.99, (double)expandedBytes / expansionLimit));
         }
+        if (entryCount == 0) throw new InvalidDataException("Unityパッケージの内容が空です。");
+        reportProgress?.Invoke(1);
     }
 
-    private static string RunTar(params string[] arguments)
+    private static void ValidateArchiveSafely(string packagePath, long compressedBytes, Action<double>? reportProgress)
     {
-        var tarPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "tar.exe");
-        if (!File.Exists(tarPath)) throw new FileNotFoundException("Windows標準のtar.exeが見つかりません。", tarPath);
-        var startInfo = new ProcessStartInfo(tarPath)
+        var expansionLimit = GetExpansionLimit(compressedBytes);
+        long expandedBytes = 0;
+        var entryCount = 0;
+        using var packageStream = File.Open(packagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var gzipStream = new GZipStream(packageStream, CompressionMode.Decompress, leaveOpen: false);
+        using var reader = new TarReader(gzipStream, leaveOpen: false);
+        TarEntry? entry;
+        while ((entry = reader.GetNextEntry()) is not null)
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("Unityパッケージ処理を開始できませんでした。");
-        var standardOutput = process.StandardOutput.ReadToEnd();
-        var standardError = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        if (process.ExitCode != 0)
-            throw new InvalidDataException($"Unityパッケージ処理に失敗しました。\n{standardError}\n{standardOutput}".Trim());
-        return standardOutput;
+            entryCount++;
+            if (entryCount > MaximumArchiveEntries)
+                throw new InvalidDataException($"Unityパッケージの項目数が安全上の上限（{MaximumArchiveEntries:N0}件）を超えています。");
+            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile or TarEntryType.Directory))
+                throw new InvalidDataException($"リンクまたは特殊項目を含むUnityパッケージは使用できません: {entry.Name}");
+            _ = ResolveSafeArchivePath(Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, entry.Name);
+            if (entry.EntryType == TarEntryType.Directory) continue;
+            if (entry.Length < 0 || expandedBytes > expansionLimit - entry.Length)
+                throw new InvalidDataException($"Unityパッケージの展開容量が安全上の上限（{expansionLimit / 1024 / 1024:N0}MB）を超えています。");
+            if (entry.DataStream is null)
+                throw new InvalidDataException($"Unityパッケージのファイルデータを読み取れません: {entry.Name}");
+            // 検証だけの場合も末尾まで読み、途中で切れた gzip/tar を検出する。
+            entry.DataStream.CopyTo(Stream.Null);
+            expandedBytes += entry.Length;
+            reportProgress?.Invoke(expansionLimit == 0 ? 1 : Math.Min(0.99, (double)expandedBytes / expansionLimit));
+        }
+        if (entryCount == 0) throw new InvalidDataException("Unityパッケージの内容が空です。");
+        reportProgress?.Invoke(1);
     }
 
-    private static string RunTarFromArchive(string packagePath, params string[] arguments)
+    private static long GetExpansionLimit(long compressedBytes) =>
+        Math.Min(MaximumExpandedBytes, Math.Max(MinimumExpansionAllowance,
+            compressedBytes > MaximumExpandedBytes / 200 ? MaximumExpandedBytes : compressedBytes * 200));
+
+    private static string ResolveSafeArchivePath(string extractionRoot, string entryName)
     {
-        var tarPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "tar.exe");
-        if (!File.Exists(tarPath)) throw new FileNotFoundException("Windows標準のtar.exeが見つかりません。", tarPath);
-        var startInfo = new ProcessStartInfo(tarPath)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("Unityパッケージ処理を開始できませんでした。");
-        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
-        var standardErrorTask = process.StandardError.ReadToEndAsync();
-        try
-        {
-            using var source = File.Open(packagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            source.CopyTo(process.StandardInput.BaseStream);
-        }
-        finally
-        {
-            process.StandardInput.Close();
-        }
-        process.WaitForExit();
-        var standardOutput = standardOutputTask.GetAwaiter().GetResult();
-        var standardError = standardErrorTask.GetAwaiter().GetResult();
-        if (process.ExitCode != 0)
-            throw new InvalidDataException($"Unityパッケージ処理に失敗しました。\n{standardError}\n{standardOutput}".Trim());
-        return standardOutput;
+        if (string.IsNullOrWhiteSpace(entryName) || entryName.IndexOf('\0') >= 0)
+            throw new InvalidDataException("名前が空、または不正なUnityパッケージ項目があります。");
+        var normalized = entryName.Replace('\\', '/');
+        if (normalized.StartsWith("/", StringComparison.Ordinal) || normalized.StartsWith("//", StringComparison.Ordinal))
+            throw new InvalidDataException($"絶対パスを含むUnityパッケージは展開できません: {entryName}");
+        var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0 || segments.Any(IsUnsafePathSegment))
+            throw new InvalidDataException($"安全でないパスを含むUnityパッケージは展開できません: {entryName}");
+        var destinationPath = Path.GetFullPath(Path.Combine(extractionRoot, Path.Combine(segments)));
+        if (!destinationPath.StartsWith(extractionRoot, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"展開先の外部を指すUnityパッケージ項目があります: {entryName}");
+        return destinationPath;
+    }
+
+    private static bool IsUnsafePathSegment(string segment)
+    {
+        if (segment is "." or ".." || segment.EndsWith(' ') || segment.EndsWith('.')
+            || segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return true;
+        var baseName = segment.Split('.')[0];
+        return baseName.Equals("CON", StringComparison.OrdinalIgnoreCase)
+            || baseName.Equals("PRN", StringComparison.OrdinalIgnoreCase)
+            || baseName.Equals("AUX", StringComparison.OrdinalIgnoreCase)
+            || baseName.Equals("NUL", StringComparison.OrdinalIgnoreCase)
+            || (baseName.Length == 4 && (baseName.StartsWith("COM", StringComparison.OrdinalIgnoreCase)
+                || baseName.StartsWith("LPT", StringComparison.OrdinalIgnoreCase))
+                && baseName[3] is >= '1' and <= '9');
     }
 
     private static void RunTarWithProgress(

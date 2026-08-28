@@ -12,6 +12,7 @@ public sealed record CategoryImportSetting(string Category, string FolderName, b
 
 public sealed class UserMetadataStore
 {
+    public const int CurrentDataAccessConsentVersion = 1;
     private readonly string _databasePath;
 
     public UserMetadataStore()
@@ -20,7 +21,9 @@ public sealed class UserMetadataStore
         var directory = Path.Combine(localAppData, "VrcKaihenLibrary");
         Directory.CreateDirectory(directory);
         _databasePath = Path.Combine(directory, "library.db");
-        MigrateLegacyDatabaseIfNeeded(Path.Combine(localAppData, "VrcKaihenManager", "library.db"));
+        var legacyDatabasePath = Path.Combine(localAppData, "VrcKaihenManager", "library.db");
+        var isExistingInstallation = File.Exists(_databasePath) || File.Exists(legacyDatabasePath);
+        MigrateLegacyDatabaseIfNeeded(legacyDatabasePath);
         using var connection = Open();
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -84,7 +87,20 @@ public sealed class UserMetadataStore
         EnsureColumn(connection, "avatar_profiles", "shop_name", "TEXT");
         EnsureColumn(connection, "avatar_profiles", "thumbnail_url", "TEXT");
         EnsureColumn(connection, "item_metadata", "supports_all_avatars", "INTEGER NOT NULL DEFAULT 0");
+        InitializeFirstLaunchSetting(connection, isExistingInstallation);
         RemoveLegacyBoothUrlIdentifiers(connection);
+    }
+
+    private static void InitializeFirstLaunchSetting(SqliteConnection connection, bool isExistingInstallation)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT OR IGNORE INTO application_settings(key, value, updated_at)
+            VALUES('first_launch_completed', $value, $updated)
+            """;
+        command.Parameters.AddWithValue("$value", isExistingInstallation ? "true" : "false");
+        command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
     }
 
     private void MigrateLegacyDatabaseIfNeeded(string legacyDatabasePath)
@@ -172,6 +188,113 @@ public sealed class UserMetadataStore
         command.ExecuteNonQuery();
     }
 
+    public double? ReadDetailPanelWidth()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT value FROM application_settings WHERE key='detail_panel_width'";
+        var value = command.ExecuteScalar() as string;
+        return double.TryParse(value, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var width) ? width : null;
+    }
+
+    public void SaveDetailPanelWidth(double width)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO application_settings(key, value, updated_at)
+            VALUES('detail_panel_width', $value, $updated)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+            """;
+        command.Parameters.AddWithValue("$value", width.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
+    public string ReadCardSizePreset()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT value FROM application_settings WHERE key='card_size_preset'";
+        var value = command.ExecuteScalar() as string;
+        return value is "Small" or "Large" ? value : "Medium";
+    }
+
+    public void SaveCardSizePreset(string preset)
+    {
+        if (preset is not ("Small" or "Medium" or "Large"))
+            throw new ArgumentOutOfRangeException(nameof(preset));
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO application_settings(key, value, updated_at)
+            VALUES('card_size_preset', $value, $updated)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+            """;
+        command.Parameters.AddWithValue("$value", preset);
+        command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
+    public bool CompleteFirstLaunchAndShouldShowHelp()
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        using var readCommand = connection.CreateCommand();
+        readCommand.Transaction = transaction;
+        readCommand.CommandText = "SELECT value FROM application_settings WHERE key='first_launch_completed'";
+        var completed = (readCommand.ExecuteScalar() as string)?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+        if (completed)
+        {
+            transaction.Commit();
+            return false;
+        }
+
+        using var updateCommand = connection.CreateCommand();
+        updateCommand.Transaction = transaction;
+        updateCommand.CommandText = """
+            UPDATE application_settings
+            SET value='true', updated_at=$updated
+            WHERE key='first_launch_completed'
+            """;
+        updateCommand.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
+        updateCommand.ExecuteNonQuery();
+        transaction.Commit();
+        return true;
+    }
+
+    public bool HasCurrentDataAccessConsent()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT value FROM application_settings WHERE key='data_access_consent_version'";
+        return int.TryParse(command.ExecuteScalar() as string, out var version)
+            && version >= CurrentDataAccessConsentVersion;
+    }
+
+    public void SaveCurrentDataAccessConsent()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO application_settings(key, value, updated_at)
+            VALUES('data_access_consent_version', $value, $updated)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+            """;
+        command.Parameters.AddWithValue("$value", CurrentDataAccessConsentVersion.ToString());
+        command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
+    public void ClearDataAccessConsent()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM application_settings WHERE key='data_access_consent_version'";
+        command.ExecuteNonQuery();
+    }
+
     public void Save(LibraryItem item)
     {
         using var connection = Open();
@@ -230,17 +353,38 @@ public sealed class UserMetadataStore
 
             using var countCommand = connection.CreateCommand();
             countCommand.Transaction = transaction;
-            countCommand.CommandText = "SELECT COUNT(*) FROM avatar_identifiers WHERE registration_id=$id";
+            countCommand.CommandText = """
+                SELECT p.identifiers_manual,
+                       (SELECT COUNT(*) FROM avatar_identifiers i WHERE i.registration_id=p.registration_id)
+                FROM avatar_profiles p WHERE p.registration_id=$id
+                """;
             countCommand.Parameters.AddWithValue("$id", item.RegistrationId);
-            var hasIdentifiers = Convert.ToInt32(countCommand.ExecuteScalar()) > 0;
-            if (hasIdentifiers) continue;
+            using var defaultsState = countCommand.ExecuteReader();
+            if (!defaultsState.Read()) continue;
+            var identifiersManual = defaultsState.GetInt32(0) != 0;
+            var hasIdentifiers = defaultsState.GetInt32(1) > 0;
+            defaultsState.Close();
+            if (identifiersManual) continue;
+            var hasCatalogEntry = DefaultAvatarIdentifierCatalog.TryGet(item.BoothItemId, out _);
+            if (hasIdentifiers && !hasCatalogEntry) continue;
+
+            if (hasCatalogEntry)
+            {
+                using var deleteAutomaticIdentifiers = connection.CreateCommand();
+                deleteAutomaticIdentifiers.Transaction = transaction;
+                deleteAutomaticIdentifiers.CommandText = "DELETE FROM avatar_identifiers WHERE registration_id=$id";
+                deleteAutomaticIdentifiers.Parameters.AddWithValue("$id", item.RegistrationId);
+                deleteAutomaticIdentifiers.ExecuteNonQuery();
+            }
 
             var defaults = AvatarCompatibilityService.GenerateDefaultIdentifiers(item);
             var primaryIdentifier = AvatarCompatibilityService.GenerateDefaultPrimaryIdentifier(item);
             using (var primary = connection.CreateCommand())
             {
                 primary.Transaction = transaction;
-                primary.CommandText = "UPDATE avatar_profiles SET primary_identifier=$primary WHERE registration_id=$id AND primary_identifier=''";
+                primary.CommandText = hasCatalogEntry
+                    ? "UPDATE avatar_profiles SET primary_identifier=$primary WHERE registration_id=$id AND identifiers_manual=0"
+                    : "UPDATE avatar_profiles SET primary_identifier=$primary WHERE registration_id=$id AND primary_identifier=''";
                 primary.Parameters.AddWithValue("$primary", primaryIdentifier);
                 primary.Parameters.AddWithValue("$id", item.RegistrationId);
                 primary.ExecuteNonQuery();

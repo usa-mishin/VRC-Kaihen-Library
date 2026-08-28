@@ -142,7 +142,7 @@ public sealed class LibraryItem : INotifyPropertyChanged
     {
         if (!_smartTitleShorteningEnabled) return name;
 
-        var value = Regex.Replace(name, @"[【\[〖〈《]\s*([^】\]〗〉》]+?)\s*[】\]〗〉》]", match =>
+        var value = Regex.Replace(name, @"[【\[［〖〈《]\s*([^】\]］〗〉》]+?)\s*[】\]］〗〉》]", match =>
             IsAuxiliaryBracketText(match.Groups[1].Value) ? string.Empty : match.Value,
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -151,27 +151,33 @@ public sealed class LibraryItem : INotifyPropertyChanged
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         value = Regex.Replace(value,
-            @"[\p{So}\p{Sk}\uFE0F]*\s*(?:(?:SUMMER\s+)?SALE中?(?:\s*[0-9０-９]+\s*[%％]\s*OF{1,2})?|[0-9０-９]+\s*[%％]\s*SALE|サマーセール中?|セール中?)\s*[\p{So}\p{Sk}\uFE0F]*",
+            @"[\p{So}\p{Sk}\p{Cs}\p{M}\uFE0F]*\s*(?:(?:(?:SUMMER|THANK\s+YOU)\s+)?SALE\s*中?(?:\s*[0-9０-９]+\s*[%％]\s*OF{1,2})?|(?:UP\s+TO\s+)?[0-9０-９]+\s*[%％]\s*(?:SALE|OF{1,2})|サマーセール中?|セール中?)\s*[\p{So}\p{Sk}\p{Cs}\p{M}\uFE0F]*",
             string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         value = Regex.Replace(value,
-            @"(?<![\p{L}\p{N}])(?:(?:[0-9０-９]+|複数|全)\s*(?:アバター|キャラ)\s*(?:[+＋]\s*[αa])?\s*(?:セミ)?対応|(?:[0-9０-９]+|複数|全)\s*avatars?(?:\s+update)?)(?![\p{L}\p{N}])",
+            @"[\p{So}\p{Sk}\p{Cs}\p{M}\uFE0F]*\s*(?<![\p{L}\p{N}])(?:(?:[0-9０-９]+|複数|全)\s*(?:アバター|キャラ)\s*(?:[+＋]\s*[αa])?\s*(?:セミ)?対応|(?:[0-9０-９]+|複数|全)\s*(?:avatars?|人)(?:\s+update)?)(?![\p{L}\p{N}])\s*[\p{So}\p{Sk}\p{Cs}\p{M}\uFE0F]*",
+            string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        value = Regex.Replace(value,
+            @"[\p{So}\p{Sk}\p{Cs}\p{M}\uFE0F]*\s*(?<![\p{L}\p{N}])(?:[0-9０-９]+\s*colors?|ma対応[!！]?|vrc\s*想定)(?![\p{L}\p{N}])\s*[\p{So}\p{Sk}\p{Cs}\p{M}\uFE0F]*",
             string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         value = Regex.Replace(value, @"\s{2,}", " ").Trim();
-        value = Regex.Replace(value, @"^(?:[/|・:：_-]\s*)+|(?:\s*[/|・:：_-])+$", string.Empty).Trim();
+        value = Regex.Replace(value, @"(?:\s*[|｜]\s*){2,}", "｜");
+        value = Regex.Replace(value, @"^(?:[/|｜・:：_+!！-]\s*)+|(?:\s*[/|｜・:：_+!！-])+$", string.Empty).Trim();
         return string.IsNullOrWhiteSpace(value) ? name : value;
     }
 
     private bool IsAuxiliaryBracketText(string text)
     {
-        var value = Normalize(text).Trim();
-        if (Regex.IsMatch(value, @"^(?:(?:\d+|複数|全)\s*(?:アバター(?:[+＋]α)?(?:対応)?|avatars?))(?:ギミック|\s+vrc\s*hair)?$", RegexOptions.IgnoreCase)) return true;
-        if (Regex.IsMatch(value, @"^(?:vrchat(?:想定)?(?:・ma対応)?|vrc\s*(?:衣装|hair|想定|向けしっぽアクセサリー)|3d(?:衣装モデル|モデル)?|オリジナル3dモデル|vrchat向け衣装モデル|liltoon対応|アイテクスチャ|アクセサリー)$", RegexOptions.IgnoreCase)) return true;
+        var value = Regex.Replace(Normalize(text).Trim(), @"^[\p{S}\p{P}\p{Cs}\p{M}\s]+|[\p{S}\p{P}\p{Cs}\p{M}\s]+$", string.Empty);
+        if (Regex.IsMatch(value, @"^(?:(?:\d+|複数|全)\s*(?:アバター(?:[+＋]α)?(?:対応)?|avatars?|人))(?:ギミック|\s+(?:update|vrc\s*hair))?$", RegexOptions.IgnoreCase)) return true;
+        if (Regex.IsMatch(value, @"^(?:vrchat(?:想定)?(?:・ma対応)?|vrc\s*(?:衣装|hair|想定|向けしっぽアクセサリー)|3d(?:衣装モデル|モデル)?|オリジナル3dモデル|vrchat(?:向け衣装モデル|用ヘアモデル)|衣装\s*/\s*靴|liltoon対応|アイテクスチャ|アクセサリー)$", RegexOptions.IgnoreCase)) return true;
         if (Regex.IsMatch(value, @"^(?:pb|ma対応|ma設定済み?|簡単導入(?:・ma対応)?|無料\s*/\s*free|セール中?|sale[\s_・-]*中?|update)$", RegexOptions.IgnoreCase)) return true;
-        if (Regex.IsMatch(value, @"^(?:無料版あり|無料有\s*/\s*[+＋]?free\s*sample|全(?:118|6)種|50種|23types|10color[+＋]10)$", RegexOptions.IgnoreCase)) return true;
+        if (Regex.IsMatch(value, @"^(?:無料版あり|無料有\s*/\s*[+＋]?free\s*sample|全?\d+種|\d+types|\d+colors?(?:[+＋]\d+)?)$", RegexOptions.IgnoreCase)) return true;
+        if (Regex.IsMatch(value, @"^(?:周年記念セール.*|(?:up\s+to\s+)?\d+\s*[%％]\s*of{1,2}|\d+\s*colors?)$", RegexOptions.IgnoreCase)) return true;
 
-        var withoutCompatibilitySuffix = Regex.Replace(value, @"(?:専用|対応)$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        var withoutCompatibilitySuffix = Regex.Replace(value, @"(?:専用|対応|用)$", string.Empty, RegexOptions.IgnoreCase).Trim();
         return _titleCleanupIdentifiers.Any(identifier =>
             value.Equals(identifier, StringComparison.OrdinalIgnoreCase)
             || withoutCompatibilitySuffix.Contains(identifier, StringComparison.OrdinalIgnoreCase));

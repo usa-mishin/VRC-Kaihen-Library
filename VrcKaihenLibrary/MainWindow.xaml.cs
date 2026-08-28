@@ -4,6 +4,9 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.Data.Sqlite;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -92,8 +95,11 @@ public sealed class UnityPackageEntry
     public bool HasDuplicateName { get; set; }
     public Visibility DuplicateBadgeVisibility => HasDuplicateName ? Visibility.Visible : Visibility.Collapsed;
 }
-public sealed class DownloadFileEntry
+public sealed class DownloadFileEntry : INotifyPropertyChanged
 {
+    private BitmapImage? _thumbnailImage;
+    private BitmapImage? _hoverPreviewImage;
+    private bool _thumbnailLoadCompleted;
     public string CategoryKey { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
@@ -101,15 +107,64 @@ public sealed class DownloadFileEntry
     public DateTime LastWriteTime { get; set; }
     public string LastWriteTimeText => LastWriteTime.ToString("yyyy/MM/dd HH:mm");
     public bool HasDuplicateName { get; set; }
-    public bool HasNewVersionCandidate { get; set; }
+    public bool IsOldVersion { get; set; }
+    public bool IsDuplicateDownloadCopy { get; set; }
+    public string? NewerVersionPath { get; set; }
+    public IReadOnlyList<DownloadFileEntry> OlderVersions { get; set; } = [];
+    public IReadOnlyList<string> AvatarBadgeNames { get; set; } = [];
+    public int DirectoryDepth { get; set; }
+    public Thickness TreeIndentMargin => new((DirectoryDepth + 1) * 14d, 0, 0, 0);
     public Brush? AccentBrush { get; set; }
     public Visibility DuplicateBadgeVisibility => HasDuplicateName ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility NewVersionBadgeVisibility => HasNewVersionCandidate ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility OldVersionBadgeVisibility => IsOldVersion ? Visibility.Visible : Visibility.Collapsed;
     public Visibility MaterialBadgeVisibility => CategoryKey == "UnityPackage"
         && FileName.Contains("material", StringComparison.OrdinalIgnoreCase)
         ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility BadgeRowVisibility => MaterialBadgeVisibility == Visibility.Visible || HasDuplicateName || HasNewVersionCandidate
+    public Visibility BadgeRowVisibility => MaterialBadgeVisibility == Visibility.Visible || HasDuplicateName || IsOldVersion || AvatarBadgeNames.Count > 0
         ? Visibility.Visible : Visibility.Collapsed;
+    public Brush RowBackground => IsOldVersion || IsDuplicateDownloadCopy
+        ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 240, 241, 243))
+        : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+    public BitmapImage? ThumbnailImage
+    {
+        get => _thumbnailImage;
+        set
+        {
+            if (ReferenceEquals(_thumbnailImage, value)) return;
+            _thumbnailImage = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ThumbnailImage)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HoverPreviewImage)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ThumbnailVisibility)));
+        }
+    }
+    public BitmapImage? HoverPreviewImage
+    {
+        get => _hoverPreviewImage ?? ThumbnailImage;
+        set
+        {
+            if (ReferenceEquals(_hoverPreviewImage, value)) return;
+            _hoverPreviewImage = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HoverPreviewImage)));
+        }
+    }
+    public bool HasLoadedHoverPreview { get; set; }
+    public bool SupportsThumbnail => ImagePreviewService.SupportsPreview(FilePath);
+    public Visibility PreviewColumnVisibility => SupportsThumbnail ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ThumbnailVisibility => ThumbnailImage is not null ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ThumbnailLoadingVisibility => SupportsThumbnail && !_thumbnailLoadCompleted
+        ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsThumbnailLoading => SupportsThumbnail && !_thumbnailLoadCompleted;
+    public Visibility ThumbnailFallbackVisibility => SupportsThumbnail && _thumbnailLoadCompleted && ThumbnailImage is null
+        ? Visibility.Visible : Visibility.Collapsed;
+    public void CompleteThumbnailLoad(BitmapImage? image)
+    {
+        ThumbnailImage = image;
+        _thumbnailLoadCompleted = true;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ThumbnailLoadingVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsThumbnailLoading)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ThumbnailFallbackVisibility)));
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 public sealed class DownloadFileCategory : INotifyPropertyChanged
 {
@@ -123,6 +178,53 @@ public sealed class DownloadFileCategory : INotifyPropertyChanged
     public string Subtitle { get; set; } = string.Empty;
     public Visibility SubtitleVisibility => string.IsNullOrWhiteSpace(Subtitle) ? Visibility.Collapsed : Visibility.Visible;
     public IReadOnlyList<DownloadFileEntry> Files { get; set; } = [];
+    public ObservableCollection<DownloadDirectoryGroup> VisibleDirectories { get; } = [];
+    public IReadOnlyList<DownloadDirectoryGroup> DirectoryRoots { get; set; } = [];
+    public bool UsesDirectoryTree => Key != "UnityPackage";
+    public Visibility FileListVisibility => IsExpanded && !UsesDirectoryTree ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility DirectoryListVisibility => IsExpanded && UsesDirectoryTree ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ExpandedVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileListVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DirectoryListVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ChevronGlyph)));
+        }
+    }
+    public Visibility ExpandedVisibility => IsExpanded ? Visibility.Visible : Visibility.Collapsed;
+    public string ChevronGlyph => IsExpanded ? "\uE70E" : "\uE70D";
+    public void RefreshVisibleDirectories()
+    {
+        VisibleDirectories.Clear();
+        foreach (var root in DirectoryRoots) AddVisibleDirectory(root);
+    }
+    private void AddVisibleDirectory(DownloadDirectoryGroup directory)
+    {
+        VisibleDirectories.Add(directory);
+        if (!directory.IsExpanded) return;
+        foreach (var child in directory.Children) AddVisibleDirectory(child);
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+public sealed class DownloadDirectoryGroup : INotifyPropertyChanged
+{
+    private bool _isExpanded;
+    public string DisplayName { get; set; } = string.Empty;
+    public string RelativePath { get; set; } = string.Empty;
+    public string FolderPath { get; set; } = string.Empty;
+    public Brush AccentBrush { get; set; } = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+    public IReadOnlyList<DownloadFileEntry> Files { get; set; } = [];
+    public IReadOnlyList<DownloadDirectoryGroup> Children { get; set; } = [];
+    public DownloadFileCategory? Owner { get; set; }
+    public DownloadDirectoryGroup? Parent { get; set; }
+    public int Depth { get; set; }
+    public Thickness IndentMargin => new(Depth * 14d, 0, 0, 0);
+    public string CountText => $"{Files.Count}個";
     public bool IsExpanded
     {
         get => _isExpanded;
@@ -159,7 +261,7 @@ public sealed class AvatarSelectionOption : INotifyPropertyChanged
 
 public sealed partial class MainWindow : Window
 {
-    private enum AppPage { Avatar, Library, Shop, BoothTags, Settings }
+    private enum AppPage { Avatar, Library, Shop, BoothTags, ImportSettings, Settings, Help, Changelog, Privacy }
     private enum OperationPopupKind { Progress, Success, Information, Error }
     private sealed record UnityEditorTarget(int ProcessId, IntPtr WindowHandle);
     private sealed record ImportSettingEditor(string Category, TextBox FolderBox, CheckBox RootCheckBox);
@@ -177,6 +279,7 @@ public sealed partial class MainWindow : Window
     private LibraryItem? _detailItem;
     private string _selectedCategory = AllCategories;
     private readonly List<Button> _categoryTabButtons = [];
+    private readonly List<(Button Button, FontIcon Check, string Category)> _categorySelectorButtons = [];
     private readonly List<(Button Button, FontIcon Check, string Value, string Label)> _sortOptionButtons = [];
     private readonly List<TextBox> _avatarIdentifierBoxes = [];
     private readonly List<TextBox> _unpurchasedAvatarIdentifierBoxes = [];
@@ -190,10 +293,12 @@ public sealed partial class MainWindow : Window
     private List<AvatarSelectionOption> _compatibilityOptions = [];
     private List<AvatarSelectionOption> _sharedBodyOptions = [];
     private string? _selectedAvatarFilterId;
+    private bool _excludeSharedBodyMatches;
     private string? _selectedShopFilter;
     private string? _selectedBoothTag;
     private string? _selectedPurchasedPackType;
     private bool _showFileUpdatesOnly;
+    private int _avatarSortIndex = 4;
     private readonly Dictionary<string, HashSet<string>> _compatibilityFilterCache = new(StringComparer.Ordinal);
     private Dictionary<string, Dictionary<string, int>> _compatibilityOverrides = new(StringComparer.Ordinal);
     private string _categoryAtEditStart = AssetCategories.Other;
@@ -204,6 +309,20 @@ public sealed partial class MainWindow : Window
     private readonly List<ImportSettingEditor> _importSettingEditors = [];
     private bool _isApplyingSmartTitleSetting = true;
     private int _operationPopupVersion;
+    private bool _isLibraryLoading;
+    private bool _hasCompletedInitialLoad;
+    private const double MinimumDetailPanelWidth = 300d;
+    private const double MaximumDetailPanelWidth = 720d;
+    private const double SmallDetailPanelWidth = 340d;
+    private const double MediumDetailPanelWidth = 420d;
+    private const double LargeDetailPanelWidth = 560d;
+    private double? _preferredDetailPanelWidth;
+    private bool _isApplyingDetailPanelSizeSetting = true;
+    private string _cardSizePreset = "Medium";
+    private bool _isApplyingCardSizeSetting = true;
+    private bool _isResizingDetailPanel;
+    private double _detailResizeStartX;
+    private double _detailResizeStartWidth;
 
     public ObservableCollection<LibraryItem> VisibleItems { get; } = [];
     public ObservableCollection<AvatarCardItem> VisibleAvatarCards { get; } = [];
@@ -226,6 +345,16 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AppVersionText.Text = $"v{typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "1.0.0.0"}";
+        var savedDetailPanelWidth = _metadataStore.ReadDetailPanelWidth();
+        if (savedDetailPanelWidth is >= MinimumDetailPanelWidth and <= MaximumDetailPanelWidth)
+            _preferredDetailPanelWidth = savedDetailPanelWidth;
+        DetailPanelSizeBox.SelectedIndex = GetDetailPanelSizeIndex(
+            savedDetailPanelWidth ?? MediumDetailPanelWidth);
+        _isApplyingDetailPanelSizeSetting = false;
+        _cardSizePreset = _metadataStore.ReadCardSizePreset();
+        CardSizeBox.SelectedIndex = _cardSizePreset switch { "Small" => 0, "Large" => 2, _ => 1 };
+        _isApplyingCardSizeSetting = false;
         var windowIconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
         if (File.Exists(windowIconPath)) AppWindow.SetIcon(windowIconPath);
         PageSizeBox.SelectedItem = 50;
@@ -239,15 +368,182 @@ public sealed partial class MainWindow : Window
     private async void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
     {
         Activated -= MainWindow_Activated;
+        await WaitForRootLayoutLoadedAsync();
+        if (!await EnsureDataAccessConsentAsync())
+        {
+            Close();
+            return;
+        }
         await LoadLibraryAsync();
+    }
+
+    private Task WaitForRootLayoutLoadedAsync()
+    {
+        if (RootLayout.IsLoaded && RootLayout.XamlRoot is not null) return Task.CompletedTask;
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        RoutedEventHandler? loaded = null;
+        loaded = (_, _) =>
+        {
+            RootLayout.Loaded -= loaded;
+            completion.TrySetResult();
+        };
+        RootLayout.Loaded += loaded;
+        return completion.Task;
+    }
+
+    private async Task<bool> EnsureDataAccessConsentAsync()
+    {
+        if (_metadataStore.HasCurrentDataAccessConsent()) return true;
+
+        using (var key = Registry.CurrentUser.OpenSubKey(@"Software\VrcKaihenLibrary"))
+        {
+            if (key?.GetValue("DataAccessConsentVersion") is int version
+                && version >= UserMetadataStore.CurrentDataAccessConsentVersion)
+            {
+                _metadataStore.SaveCurrentDataAccessConsent();
+                return true;
+            }
+        }
+
+        var confirmation = new CheckBox
+        {
+            Content = new TextBlock
+            {
+                Text = "内容を確認し、PC内の商品情報を読み取り専用で参照することに同意します",
+                TextWrapping = TextWrapping.Wrap
+            },
+            IsChecked = false
+        };
+        var content = new StackPanel { Spacing = 12 };
+        content.Children.Add(new TextBlock
+        {
+            Text = @"本アプリは、BOOTH Library Manager があなたのPC内に保存した商品情報（保存場所：%APPDATA%\pm.booth.library-manager\data.db）から、商品情報、購入・ダウンロード済みバリエーション、更新日時、商品保存先を読み取り専用で参照します。元の商品情報の変更・置換・削除は行いません。",
+            TextWrapping = TextWrapping.Wrap
+        });
+        content.Children.Add(new TextBlock
+        {
+            Text = "氏名、住所、メールアドレス、パスワード、Cookie、ブラウザ履歴は読み取りません。独自サーバーへの送信、広告、テレメトリー、クラッシュ自動送信もありません。サムネイルだけをBOOTH公式HTTPSドメインから取得する場合があります。",
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.78
+        });
+        content.Children.Add(new TextBlock
+        {
+            Text = "本アプリはBOOTHおよびBOOTH Library Managerの非公式ツールであり、運営元による提供・保証・提携を受けていません。",
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.78
+        });
+        content.Children.Add(confirmation);
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = RootLayout.XamlRoot,
+            Title = "ローカルデータの参照について",
+            Content = content,
+            PrimaryButtonText = "同意して開始",
+            CloseButtonText = "同意しない（終了）",
+            DefaultButton = ContentDialogButton.Primary,
+            IsPrimaryButtonEnabled = false
+        };
+        confirmation.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
+        confirmation.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return false;
+        _metadataStore.SaveCurrentDataAccessConsent();
+        return true;
+    }
+
+    private async void RevokeDataAccessConsent_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = RootLayout.XamlRoot,
+            Title = "同意を取り消しますか？",
+            Content = "同意記録をこのPCから削除し、BLMの商品情報を画面上から消去してアプリを終了します。BLMのDB、商品ファイル、本アプリの分類設定は削除しません。次回起動時に同意画面を再表示します。",
+            PrimaryButtonText = "取り消して終了",
+            CloseButtonText = "キャンセル",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        _metadataStore.ClearDataAccessConsent();
+        using (var key = Registry.CurrentUser.OpenSubKey(@"Software\VrcKaihenLibrary", writable: true))
+            key?.DeleteValue("DataAccessConsentVersion", throwOnMissingValue: false);
+        _allItems = [];
+        VisibleItems.Clear();
+        VisibleAvatarCards.Clear();
+        VisibleShopCards.Clear();
+        VisibleBoothTags.Clear();
+        Close();
+    }
+
+    private void RootLayout_Loaded(object sender, RoutedEventArgs e)
+        => QueueCompactVerticalScrollBars(RootLayout);
+
+    private void CompactScrollContainer_Loaded(object sender, RoutedEventArgs e)
+        => QueueCompactVerticalScrollBars((DependencyObject)sender);
+
+    private void QueueCompactVerticalScrollBars(DependencyObject root)
+    {
+        DispatcherQueue.TryEnqueue(() => ApplyCompactVerticalScrollBars(root));
+    }
+
+    private static void ApplyCompactVerticalScrollBars(DependencyObject root)
+    {
+        if (root is Microsoft.UI.Xaml.Controls.Primitives.ScrollBar
+            {
+                Orientation: Orientation.Vertical
+            } scrollBar)
+        {
+            SetVerticalScrollBarEndHeight(scrollBar, "VerticalSmallDecrease");
+            SetVerticalScrollBarEndHeight(scrollBar, "VerticalSmallIncrease");
+        }
+
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+            ApplyCompactVerticalScrollBars(VisualTreeHelper.GetChild(root, index));
+    }
+
+    private static void SetVerticalScrollBarEndHeight(
+        Microsoft.UI.Xaml.Controls.Primitives.ScrollBar scrollBar,
+        string elementName)
+    {
+        if (FindVisualDescendantByName(scrollBar, elementName)
+            is Microsoft.UI.Xaml.Controls.Primitives.RepeatButton button)
+        {
+            button.MinHeight = 0;
+            button.Height = 0;
+        }
+    }
+
+    private static FrameworkElement? FindVisualDescendantByName(DependencyObject root, string name)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is FrameworkElement { Name: var childName } element && childName == name)
+                return element;
+            var match = FindVisualDescendantByName(child, name);
+            if (match is not null) return match;
+        }
+
+        return null;
     }
 
     private async Task LoadLibraryAsync()
     {
+        if (_isLibraryLoading) return;
+        _isLibraryLoading = true;
+        var showInitialLoading = !_hasCompletedInitialLoad;
+        if (showInitialLoading)
+        {
+            InitialLoadingTitle.Text = "BOOTH Library Managerを読み込み中";
+            InitialLoadingDescription.Text = "商品データを準備しています。しばらくお待ちください。";
+            InitialLoadingOverlay.Visibility = Visibility.Visible;
+        }
         ShowOperationPopup(OperationPopupKind.Progress, "ライブラリを同期中", "BOOTH Library Manager のデータを読み込んでいます…");
         try
         {
-            var snapshot = await Task.Run(() => _reader.Read());
+            var snapshot = await ReadLibraryWithRetryAsync(showInitialLoading);
             _allItems = snapshot.Items;
             var metadata = await Task.Run(_metadataStore.ReadAll);
             var savedImportSettings = await Task.Run(_metadataStore.ReadCategoryImportSettings);
@@ -291,7 +587,11 @@ public sealed partial class MainWindow : Window
             PopulateCategories();
             ApplyFilter();
             DispatcherQueue.TryEnqueue(() => UpdateItemCardWidths(ItemsGrid.ActualWidth));
+            if (await Task.Run(_metadataStore.CompleteFirstLaunchAndShouldShowHelp))
+                SetActivePage(AppPage.Help);
             _isApplyingSmartTitleSetting = false;
+            _hasCompletedInitialLoad = true;
+            InitialLoadingOverlay.Visibility = Visibility.Collapsed;
             ShowOperationPopup(OperationPopupKind.Success, "同期が完了しました", $"{_allItems.Count:N0}件の商品を読み込みました。", autoDismiss: true);
         }
         catch (Exception ex)
@@ -302,9 +602,51 @@ public sealed partial class MainWindow : Window
             EmptyState.Visibility = Visibility.Visible;
             EmptyTitle.Text = "BOOTH Library Managerを読み込めませんでした";
             EmptyDescription.Text = ex.Message;
+            InitialLoadingOverlay.Visibility = Visibility.Collapsed;
             ShowOperationPopup(OperationPopupKind.Error, "ライブラリを読み込めませんでした", ex.Message);
             _isApplyingSmartTitleSetting = false;
         }
+        finally
+        {
+            _isLibraryLoading = false;
+        }
+    }
+
+    private async Task<BoothLibrarySnapshot> ReadLibraryWithRetryAsync(bool updateInitialLoading)
+    {
+        const int maximumAttempts = 10;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await Task.Run(() => _reader.Read());
+            }
+            catch (Exception ex) when (attempt < maximumAttempts && IsTransientLibraryReadFailure(ex))
+            {
+                if (updateInitialLoading)
+                {
+                    InitialLoadingTitle.Text = "BOOTH Library Managerの準備を待っています";
+                    InitialLoadingDescription.Text = $"BOOTH Library Manager が商品情報を準備・更新中の可能性があります。自動的に再試行します（{attempt}/{maximumAttempts}）";
+                }
+                OperationPopupMessage.Text = $"BOOTH Library Manager の準備を待っています（{attempt}/{maximumAttempts}）";
+                await Task.Delay(TimeSpan.FromSeconds(2));
+            }
+        }
+    }
+
+    private static bool IsTransientLibraryReadFailure(Exception exception)
+    {
+        if (exception is FileNotFoundException or DirectoryNotFoundException)
+            return true;
+
+        if (exception is not SqliteException sqliteException)
+            return false;
+
+        if (sqliteException.SqliteErrorCode is 5 or 6 or 14)
+            return true;
+
+        return sqliteException.SqliteErrorCode == 1
+            && sqliteException.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase);
     }
 
     private async void SmartTitleShorteningToggle_Toggled(object sender, RoutedEventArgs e)
@@ -317,18 +659,62 @@ public sealed partial class MainWindow : Window
         ApplyFilter();
         UpdateDetailPanel();
         await Task.Run(() => _metadataStore.SaveSmartTitleShorteningEnabled(enabled));
-        SmartTitleShorteningStatus.Text = enabled
-            ? "商品名スマート短縮機能をオンにしました。"
-            : "商品名スマート短縮機能をオフにしました。元の商品名を表示します。";
+        ShowOperationPopup(OperationPopupKind.Success, "表示設定を変更しました",
+            enabled ? "商品名スマート短縮をオンにしました。" : "商品名スマート短縮をオフにしました。",
+            autoDismiss: true);
+    }
+
+    private async void DetailPanelSizeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isApplyingDetailPanelSizeSetting || DetailPanelSizeBox.SelectedIndex < 0) return;
+        if (DetailPanelSizeBox.SelectedIndex == 3)
+        {
+            return;
+        }
+        var width = DetailPanelSizeBox.SelectedIndex switch
+        {
+            0 => SmallDetailPanelWidth,
+            2 => LargeDetailPanelWidth,
+            _ => MediumDetailPanelWidth
+        };
+        _preferredDetailPanelWidth = width;
+        if (DetailPanel.Visibility == Visibility.Visible)
+            UpdateDetailPanelSize(RootLayout.ActualWidth);
+        await Task.Run(() => _metadataStore.SaveDetailPanelWidth(width));
+        ShowOperationPopup(OperationPopupKind.Success, "表示設定を変更しました",
+            $"右詳細パネルのサイズを「{DetailPanelSizeBox.SelectedItem}」に変更しました。", autoDismiss: true);
+    }
+
+    private static int GetDetailPanelSizeIndex(double width)
+    {
+        const double tolerance = 0.5d;
+        if (Math.Abs(width - SmallDetailPanelWidth) <= tolerance) return 0;
+        if (Math.Abs(width - MediumDetailPanelWidth) <= tolerance) return 1;
+        if (Math.Abs(width - LargeDetailPanelWidth) <= tolerance) return 2;
+        return 3;
+    }
+
+    private async void CardSizeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isApplyingCardSizeSetting || CardSizeBox.SelectedIndex < 0) return;
+        _cardSizePreset = CardSizeBox.SelectedIndex switch { 0 => "Small", 2 => "Large", _ => "Medium" };
+        if (ItemsGrid.ActualWidth > 0) UpdateItemCardWidths(ItemsGrid.ActualWidth);
+        if (AvatarGrid.ActualWidth > 0) UpdateOverviewCardWidths(AvatarGrid, AvatarGrid.ActualWidth);
+        await Task.Run(() => _metadataStore.SaveCardSizePreset(_cardSizePreset));
+        ShowOperationPopup(OperationPopupKind.Success, "表示設定を変更しました",
+            $"アバター・アイテムカードのサイズを「{CardSizeBox.SelectedItem}」に変更しました。", autoDismiss: true);
     }
 
     private void PopulateCategories()
     {
         CategoryTabs.Children.Clear();
+        CategorySelectorOptions.Children.Clear();
         _categoryTabButtons.Clear();
+        _categorySelectorButtons.Clear();
         AddCategoryTab(AllCategories);
         foreach (var category in AssetCategories.All.Where(x => x != AssetCategories.Avatar))
             AddCategoryTab(category);
+        DispatcherQueue.TryEnqueue(() => UpdateCategoryToolbarLayout(RootLayout.ActualWidth));
     }
 
     private void PopulateAvatarFilters()
@@ -338,11 +724,16 @@ public sealed partial class MainWindow : Window
         foreach (var profile in _avatarProfiles.OrderBy(x => x.PrimaryIdentifier, StringComparer.CurrentCultureIgnoreCase))
         {
             var avatarItem = _allItems.FirstOrDefault(x => x.RegistrationId == profile.RegistrationId);
-            AvatarFilterOptions.Add(new AvatarFilterOption(profile.RegistrationId, avatarItem?.DisplayName ?? profile.PrimaryIdentifier, profile.PrimaryIdentifier, avatarItem?.ThumbnailUrl));
+            AvatarFilterOptions.Add(new AvatarFilterOption(
+                profile.RegistrationId,
+                avatarItem?.DisplayName ?? profile.PrimaryIdentifier,
+                profile.PrimaryIdentifier,
+                BoothNetworkPolicy.FilterImageSource(avatarItem?.ThumbnailUrl ?? profile.ThumbnailUrl)));
         }
         var selected = AvatarFilterOptions.FirstOrDefault(x => x.RegistrationId == _selectedAvatarFilterId) ?? AvatarFilterOptions[0];
         _selectedAvatarFilterId = selected.RegistrationId;
         AvatarFilterButtonText.Text = selected.PrimaryIdentifier;
+        UpdateAvatarFilterDependentControls();
         ApplyAvatarFilterOptionSearch();
         PopulateAvatarCards();
     }
@@ -371,9 +762,10 @@ public sealed partial class MainWindow : Window
             {
                 var item = _allItems.FirstOrDefault(x => x.RegistrationId == profile.RegistrationId);
                 return new AvatarCardItem(profile, item?.DisplayName ?? profile.Name,
-                    item?.ShopName ?? profile.ShopName ?? string.Empty, item?.ThumbnailUrl ?? profile.ThumbnailUrl, item);
+                    item?.ShopName ?? profile.ShopName ?? string.Empty,
+                    BoothNetworkPolicy.FilterImageSource(item?.ThumbnailUrl ?? profile.ThumbnailUrl), item);
             });
-        cards = AvatarSortBox?.SelectedIndex switch
+        cards = _avatarSortIndex switch
         {
             0 => cards.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase),
             1 => cards.OrderByDescending(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase),
@@ -462,6 +854,38 @@ public sealed partial class MainWindow : Window
         tab.PointerExited += CategoryTab_PointerExited;
         _categoryTabButtons.Add(tab);
         CategoryTabs.Children.Add(tab);
+        var check = new FontIcon { Glyph = "\uE73E", FontSize = 13, Visibility = Visibility.Collapsed };
+        var accent = new Border
+        {
+            Width = 9,
+            Height = 9,
+            CornerRadius = new CornerRadius(4.5),
+            Background = category == AllCategories
+                ? (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
+                : LibraryItem.GetCategoryBrush(category)
+        };
+        var label = new TextBlock { Text = category, VerticalAlignment = VerticalAlignment.Center };
+        var content = new Grid { ColumnSpacing = 9 };
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(label, 1);
+        Grid.SetColumn(check, 2);
+        content.Children.Add(accent);
+        content.Children.Add(label);
+        content.Children.Add(check);
+        var option = new VrcKaihenLibrary.Controls.HandCursorButton
+        {
+            Tag = category,
+            Content = content,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0)
+        };
+        option.Click += CategorySelectorOption_Click;
+        _categorySelectorButtons.Add((option, check, category));
+        CategorySelectorOptions.Children.Add(option);
         UpdateCategoryTabAppearance(tab);
     }
 
@@ -504,6 +928,11 @@ public sealed partial class MainWindow : Window
         if (item.RegistrationId == _selectedAvatarFilterId) return true;
         if (item.SupportsAllAvatars) return IsCompatibilityCategory(item.Category);
         if (!IsCompatibilityCategory(item.Category)) return false;
+        if (_excludeSharedBodyMatches)
+        {
+            return GetEffectiveCompatibilityMatches(item).Any(match =>
+                match.AvatarRegistrationId == _selectedAvatarFilterId && !match.ThroughBaseBody);
+        }
         if (!_compatibilityFilterCache.TryGetValue(item.RegistrationId, out var avatarIds))
         {
             avatarIds = GetEffectiveCompatibilityMatches(item).Select(x => x.AvatarRegistrationId).ToHashSet();
@@ -517,6 +946,7 @@ public sealed partial class MainWindow : Window
         if (e.ClickedItem is not AvatarFilterOption option) return;
         _selectedAvatarFilterId = option.RegistrationId;
         AvatarFilterButtonText.Text = option.PrimaryIdentifier;
+        UpdateAvatarFilterDependentControls();
         AvatarFilterFlyout.Hide();
         _currentPage = 1;
         if (_allItems.Count > 0) ApplyFilter();
@@ -561,8 +991,11 @@ public sealed partial class MainWindow : Window
         if (_avatarProfiles.Count > 0) PopulateAvatarCards();
     }
 
-    private void AvatarSortBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void AvatarSortMenuItem_Click(object sender, RoutedEventArgs e)
     {
+        if (sender is not MenuFlyoutItem { Tag: string tag } || !int.TryParse(tag, out var index)) return;
+        _avatarSortIndex = index;
+        AvatarSortButtonText.Text = ((MenuFlyoutItem)sender).Text;
         if (_avatarProfiles.Count > 0) PopulateAvatarCards();
     }
 
@@ -593,12 +1026,13 @@ public sealed partial class MainWindow : Window
         SearchBox.Text = string.Empty;
         _selectedCategory = AllCategories;
         _selectedAvatarFilterId = null;
+        UpdateAvatarFilterDependentControls();
         _selectedPurchasedPackType = null;
         _showFileUpdatesOnly = false;
-        FreeDownloadOnlyCheckBox.IsChecked = false;
-        FileUpdateOnlyCheckBox.IsChecked = false;
-        CompactFreeDownloadOnlyCheckBox.IsChecked = false;
-        CompactFileUpdateOnlyCheckBox.IsChecked = false;
+        FreeDownloadOnlySwitch.IsOn = false;
+        FileUpdateOnlySwitch.IsOn = false;
+        CompactFreeDownloadOnlySwitch.IsOn = false;
+        CompactFileUpdateOnlySwitch.IsOn = false;
         CompactSearchBox.Text = string.Empty;
         CompactAvatarFilterBox.SelectedIndex = 0;
         CompactShopFilterBox.SelectedIndex = 0;
@@ -693,14 +1127,12 @@ public sealed partial class MainWindow : Window
         var name = UnpurchasedAvatarNameBox.Text.Trim();
         var boothUrl = UnpurchasedAvatarBoothUrlBox.Text.Trim();
         var primary = UnpurchasedAvatarIdentifierBox.Text.Trim();
-        var match = Regex.Match(boothUrl, @"^https://(?:[a-z]{2}\.)?booth\.pm/(?:[a-z]{2}/)?items/(?<id>\d+)(?:[/?#].*)?$", RegexOptions.IgnoreCase);
-        if (name.Length == 0 || primary.Length == 0 || !match.Success)
+        if (name.Length == 0 || primary.Length == 0 || !TryGetBoothItemId(boothUrl, out var boothItemId))
         {
             args.Cancel = true;
             UnpurchasedAvatarValidationText.Text = "アバター名、識別名、有効なBOOTH商品URLを入力してください。";
             return;
         }
-        var boothItemId = long.Parse(match.Groups["id"].Value);
         var identifiers = _unpurchasedAvatarIdentifierBoxes.Select(x => x.Text.Trim()).Where(x => x.Length > 0)
             .Where(x => !x.Equals(primary, StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var profile = new AvatarProfile($"manual-avatar:{boothItemId}", boothItemId, name, primary, identifiers, null,
@@ -733,20 +1165,66 @@ public sealed partial class MainWindow : Window
         finally { deferral.Complete(); }
     }
 
+    private static bool TryGetBoothItemId(string value, out long boothItemId)
+    {
+        boothItemId = 0;
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || !(uri.Host.Equals("booth.pm", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.EndsWith(".booth.pm", StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        // booth.pm/ja/items/123, booth.pm/items/123 and
+        // shop-name.booth.pm/items/123 are all official BOOTH item URLs.
+        var match = Regex.Match(uri.AbsolutePath,
+            @"^/(?:[a-z]{2}/)?items/(?<id>[0-9]+)(?:/.*)?$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success
+            && long.TryParse(match.Groups["id"].Value, out boothItemId)
+            && boothItemId > 0;
+    }
+
     private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await LoadLibraryAsync();
-    private void FreeDownloadOnlyCheckBox_Changed(object sender, RoutedEventArgs e)
+    private void FreeDownloadOnlySwitch_Toggled(object sender, RoutedEventArgs e)
     {
-        _selectedPurchasedPackType = FreeDownloadOnlyCheckBox.IsChecked == true ? PurchasedPackClassifier.FreeDownload : null;
+        _selectedPurchasedPackType = FreeDownloadOnlySwitch.IsOn ? PurchasedPackClassifier.FreeDownload : null;
+        if (CompactFreeDownloadOnlySwitch.IsOn != FreeDownloadOnlySwitch.IsOn)
+            CompactFreeDownloadOnlySwitch.IsOn = FreeDownloadOnlySwitch.IsOn;
         _currentPage = 1;
         if (_allItems.Count > 0) ApplyFilter();
     }
 
-    private void FileUpdateOnlyCheckBox_Changed(object sender, RoutedEventArgs e)
+    private void FileUpdateOnlySwitch_Toggled(object sender, RoutedEventArgs e)
     {
-        _showFileUpdatesOnly = FileUpdateOnlyCheckBox.IsChecked == true;
+        _showFileUpdatesOnly = FileUpdateOnlySwitch.IsOn;
+        if (CompactFileUpdateOnlySwitch.IsOn != FileUpdateOnlySwitch.IsOn)
+            CompactFileUpdateOnlySwitch.IsOn = FileUpdateOnlySwitch.IsOn;
         _currentPage = 1;
         if (_allItems.Count > 0) ApplyFilter();
+    }
+
+    private void ExcludeSharedBodySwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        _excludeSharedBodyMatches = ExcludeSharedBodySwitch.IsOn;
+        if (CompactExcludeSharedBodySwitch.IsOn != ExcludeSharedBodySwitch.IsOn)
+            CompactExcludeSharedBodySwitch.IsOn = ExcludeSharedBodySwitch.IsOn;
+        _currentPage = 1;
+        if (_allItems.Count > 0) ApplyFilter();
+    }
+
+    private void UpdateAvatarFilterDependentControls()
+    {
+        var enabled = _selectedAvatarFilterId is not null;
+        ExcludeSharedBodySwitch.IsEnabled = enabled;
+        CompactExcludeSharedBodySwitch.IsEnabled = enabled;
+        if (enabled) return;
+
+        _excludeSharedBodyMatches = false;
+        ExcludeSharedBodySwitch.IsOn = false;
+        CompactExcludeSharedBodySwitch.IsOn = false;
     }
 
     private void ResetFilters_Click(object sender, RoutedEventArgs e)
@@ -754,6 +1232,7 @@ public sealed partial class MainWindow : Window
         SearchBox.Text = string.Empty;
         _selectedCategory = AllCategories;
         _selectedAvatarFilterId = null;
+        UpdateAvatarFilterDependentControls();
         _selectedShopFilter = null;
         _selectedBoothTag = null;
         _selectedPurchasedPackType = null;
@@ -764,10 +1243,10 @@ public sealed partial class MainWindow : Window
         AvatarFilterSearchBox.Text = string.Empty;
         ShopFilterSearchBox.Text = string.Empty;
         BoothTagFilterSearchBox.Text = string.Empty;
-        FreeDownloadOnlyCheckBox.IsChecked = false;
-        FileUpdateOnlyCheckBox.IsChecked = false;
-        CompactFreeDownloadOnlyCheckBox.IsChecked = false;
-        CompactFileUpdateOnlyCheckBox.IsChecked = false;
+        FreeDownloadOnlySwitch.IsOn = false;
+        FileUpdateOnlySwitch.IsOn = false;
+        CompactFreeDownloadOnlySwitch.IsOn = false;
+        CompactFileUpdateOnlySwitch.IsOn = false;
         CompactSearchBox.Text = string.Empty;
         CompactAvatarFilterBox.SelectedIndex = 0;
         CompactShopFilterBox.SelectedIndex = 0;
@@ -790,6 +1269,16 @@ public sealed partial class MainWindow : Window
             foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
             ApplyFilter();
         }
+    }
+
+    private void CategorySelectorOption_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string category }) return;
+        _selectedCategory = category;
+        _currentPage = 1;
+        foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
+        CategorySelectorFlyout.Hide();
+        ApplyFilter();
     }
 
     private void UpdatePager(int pageCount, int offset)
@@ -932,6 +1421,20 @@ public sealed partial class MainWindow : Window
             : (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
         tab.FontWeight = selected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
         tab.BorderThickness = selected ? new Thickness(0, 0, 0, 3) : new Thickness(0, 0, 0, 2);
+        if (!selected) return;
+        CategorySelectorText.Text = _selectedCategory;
+        CategorySelectorButton.Background = selectedBrush;
+        CategorySelectorButton.BorderBrush = selectedBrush;
+        CategorySelectorButton.Foreground = new SolidColorBrush(Microsoft.UI.Colors.White);
+        CategorySelectorButton.BorderThickness = new Thickness(0, 0, 0, 3);
+        foreach (var option in _categorySelectorButtons)
+        {
+            var optionSelected = option.Category.Equals(_selectedCategory, StringComparison.Ordinal);
+            option.Check.Visibility = optionSelected ? Visibility.Visible : Visibility.Collapsed;
+            option.Button.FontWeight = optionSelected
+                ? Microsoft.UI.Text.FontWeights.SemiBold
+                : Microsoft.UI.Text.FontWeights.Normal;
+        }
     }
 
     private void CategoryTab_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -970,7 +1473,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             ShowOperationPopup(OperationPopupKind.Error, "詳細を表示できませんでした", ex.Message);
-            Debug.WriteLine($"Detail panel error ({item.RegistrationId}): {ex}");
+            Debug.WriteLine($"Detail panel error: {ex.GetType().Name}");
         }
     }
 
@@ -983,7 +1486,7 @@ public sealed partial class MainWindow : Window
             BoothItemId = profile.BoothItemId,
             Name = profile.Name,
             Category = AssetCategories.Avatar,
-            ThumbnailUrl = profile.ThumbnailUrl,
+            ThumbnailUrl = BoothNetworkPolicy.FilterImageSource(profile.ThumbnailUrl),
             ImportToAssetsRoot = true
         };
         UpdateDetailPanel();
@@ -997,7 +1500,7 @@ public sealed partial class MainWindow : Window
     [
         ("UnityPackage", "Unityパッケージ", "\uE7B8", Windows.UI.Color.FromArgb(255, 91, 105, 166)),
         ("Texture", "テクスチャ", "\uEB9F", Windows.UI.Color.FromArgb(255, 67, 145, 181)),
-        ("ImageSource", "画像編集データ", "\uE91B", Windows.UI.Color.FromArgb(255, 173, 92, 154)),
+        ("ImageSource", "画像編集データ", "\uE790", Windows.UI.Color.FromArgb(255, 173, 92, 154)),
         ("ThreeD", "3Dデータ", "\uF158", Windows.UI.Color.FromArgb(255, 83, 151, 112)),
         ("Document", "ドキュメント", "\uE8A5", Windows.UI.Color.FromArgb(255, 184, 127, 60)),
         ("Other", "その他", "\uE8B7", Windows.UI.Color.FromArgb(255, 112, 118, 128))
@@ -1011,11 +1514,25 @@ public sealed partial class MainWindow : Window
         DownloadFileCategories.Clear();
         DownloadFileTotalCountText.Text = "検索中";
 
-        var files = await Task.Run(() => FindDownloadFiles(item.FolderPath));
+        var files = await Task.Run(() => FindDownloadFiles(
+            item.FolderPath, _avatarProfiles, item.Category != AssetCategories.Avatar));
         if (_isClosing || loadVersion != _unityPackageLoadVersion || _detailItem?.RegistrationId != item.RegistrationId) return;
 
         _downloadFiles = files;
         ApplyDownloadFileFilter();
+        _ = LoadDownloadFileThumbnailsAsync(files, item.RegistrationId);
+    }
+
+    private async Task LoadDownloadFileThumbnailsAsync(
+        IReadOnlyList<DownloadFileEntry> files, string registrationId)
+    {
+        foreach (var file in files.Where(x => x.SupportsThumbnail))
+        {
+            if (_isClosing || _detailItem?.RegistrationId != registrationId) return;
+            var thumbnail = await ImagePreviewService.LoadAsync(file.FilePath, 108);
+            if (_isClosing || _detailItem?.RegistrationId != registrationId) return;
+            file.CompleteThumbnailLoad(thumbnail);
+        }
     }
 
     private void DownloadFileSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args) => ApplyDownloadFileFilter();
@@ -1027,6 +1544,16 @@ public sealed partial class MainWindow : Window
         var files = _downloadFiles.Where(file => string.IsNullOrWhiteSpace(query)
             || Contains(file.FileName, query)
             || Contains(file.DirectoryText, query)).ToList();
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var includedPaths = files.Select(x => x.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var oldVersion in files.Where(x => x.NewerVersionPath is not null).ToList())
+            {
+                var parent = _downloadFiles.FirstOrDefault(x => x.FilePath.Equals(
+                    oldVersion.NewerVersionPath, StringComparison.OrdinalIgnoreCase));
+                if (parent is not null && includedPaths.Add(parent.FilePath)) files.Add(parent);
+            }
+        }
         DownloadFileCategories.Clear();
         foreach (var definition in DownloadCategoryDefinitions)
         {
@@ -1034,7 +1561,7 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(query) && categoryFiles.Count == 0) continue;
             var accentBrush = new SolidColorBrush(definition.Color);
             foreach (var file in categoryFiles) file.AccentBrush = accentBrush;
-            DownloadFileCategories.Add(new DownloadFileCategory
+            var category = new DownloadFileCategory
             {
                 Key = definition.Key,
                 DisplayName = definition.DisplayName,
@@ -1046,15 +1573,90 @@ public sealed partial class MainWindow : Window
                         ? "Unity配置先: Assets直下"
                         : $"Unity配置先: Assets/{GetImportFolderName(_detailItem.Category)}"
                     : string.Empty,
-                Files = categoryFiles
-            });
+                Files = definition.Key == "UnityPackage"
+                    ? categoryFiles.Where(x => x.NewerVersionPath is null
+                        || !categoryFiles.Any(parent => parent.FilePath.Equals(
+                            x.NewerVersionPath, StringComparison.OrdinalIgnoreCase))).ToList()
+                    : categoryFiles
+            };
+            if (definition.Key != "UnityPackage")
+            {
+                category.DirectoryRoots = BuildDownloadDirectoryTree(categoryFiles, accentBrush, category);
+                category.RefreshVisibleDirectories();
+            }
+            DownloadFileCategories.Add(category);
         }
         DownloadFileTotalCountText.Text = string.IsNullOrWhiteSpace(query)
             ? $"{files.Count}個"
             : $"{files.Count} / {_downloadFiles.Count}個";
     }
 
-    private static IReadOnlyList<DownloadFileEntry> FindDownloadFiles(string rootPath)
+    private static IReadOnlyList<DownloadDirectoryGroup> BuildDownloadDirectoryTree(
+        IReadOnlyList<DownloadFileEntry> files, Brush accentBrush, DownloadFileCategory owner)
+    {
+        const string rootLabel = "保存フォルダー直下";
+        var nodes = files
+            .GroupBy(x => x.DirectoryText, StringComparer.CurrentCultureIgnoreCase)
+            .ToDictionary(group => group.Key, group => new DownloadDirectoryGroup
+            {
+                DisplayName = group.Key == rootLabel ? rootLabel : Path.GetFileName(group.Key),
+                RelativePath = group.Key,
+                FolderPath = Path.GetDirectoryName(group.First().FilePath) ?? string.Empty,
+                AccentBrush = accentBrush,
+                Files = group.OrderBy(x => x.FileName, StringComparer.CurrentCultureIgnoreCase).ToList(),
+                Owner = owner
+            }, StringComparer.CurrentCultureIgnoreCase);
+
+        var children = nodes.Keys.ToDictionary(x => x, _ => new List<DownloadDirectoryGroup>(),
+            StringComparer.CurrentCultureIgnoreCase);
+        var roots = new List<DownloadDirectoryGroup>();
+        foreach (var (path, node) in nodes.OrderBy(x => x.Key, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var parentPath = path == rootLabel ? null : FindNearestDisplayedParent(path, nodes.Keys);
+            if (parentPath is not null) children[parentPath].Add(node);
+            else roots.Add(node);
+        }
+
+        void CompleteNode(DownloadDirectoryGroup node, int depth)
+        {
+            node.Depth = depth;
+            foreach (var file in node.Files) file.DirectoryDepth = depth;
+            node.Children = children[node.RelativePath]
+                .OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
+            foreach (var child in node.Children)
+            {
+                child.Parent = node;
+                CompleteNode(child, depth + 1);
+            }
+        }
+        foreach (var root in roots) CompleteNode(root, 0);
+        var duplicateDirectoryNames = nodes.Values
+            .GroupBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .Where(x => x.Count() > 1)
+            .Select(x => x.Key)
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var node in nodes.Values.Where(x => duplicateDirectoryNames.Contains(x.DisplayName)))
+        {
+            var parentName = Path.GetFileName(Path.GetDirectoryName(node.FolderPath));
+            if (!string.IsNullOrWhiteSpace(parentName)) node.DisplayName = $"{parentName} > {node.DisplayName}";
+        }
+        return roots.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    private static string? FindNearestDisplayedParent(string path, IEnumerable<string> candidates)
+    {
+        var parent = Path.GetDirectoryName(path);
+        while (!string.IsNullOrWhiteSpace(parent) && parent != ".")
+        {
+            var match = candidates.FirstOrDefault(x => x.Equals(parent, StringComparison.CurrentCultureIgnoreCase));
+            if (match is not null) return match;
+            parent = Path.GetDirectoryName(parent);
+        }
+        return null;
+    }
+
+    private static IReadOnlyList<DownloadFileEntry> FindDownloadFiles(
+        string rootPath, IReadOnlyList<AvatarProfile> avatarProfiles, bool includeAvatarBadges)
     {
         if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath)) return [];
         var paths = new List<string>();
@@ -1080,11 +1682,14 @@ public sealed partial class MainWindow : Window
 
         var duplicateNames = paths.GroupBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
             .Where(x => x.Count() > 1).Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var updateCandidates = DownloadUpdateCandidateService.FindUnityPackageCandidates(rootPath,
+        var versionParents = DownloadUpdateCandidateService.FindUnityPackageVersionParents(rootPath,
             paths.Where(path => Path.GetExtension(path).Equals(".unitypackage", StringComparison.OrdinalIgnoreCase)));
-        return paths.Select(path =>
+        var entries = paths.Select(path =>
             {
                 var relativeDirectory = Path.GetRelativePath(rootPath, Path.GetDirectoryName(path) ?? rootPath);
+                var hasParent = versionParents.TryGetValue(path, out var newerPath);
+                var isDuplicateDownloadCopy = hasParent
+                    && DownloadUpdateCandidateService.IsDuplicateDownloadFolderPair(rootPath, path, newerPath!);
                 return new DownloadFileEntry
                 {
                     CategoryKey = ClassifyDownloadFile(path),
@@ -1092,13 +1697,43 @@ public sealed partial class MainWindow : Window
                     FileName = Path.GetFileName(path),
                     DirectoryText = relativeDirectory == "." ? "保存フォルダー直下" : relativeDirectory,
                     LastWriteTime = File.GetLastWriteTime(path),
-                    HasDuplicateName = duplicateNames.Contains(Path.GetFileName(path)),
-                    HasNewVersionCandidate = updateCandidates.Contains(path)
+                    HasDuplicateName = Path.GetExtension(path).Equals(
+                        ".unitypackage", StringComparison.OrdinalIgnoreCase)
+                        && duplicateNames.Contains(Path.GetFileName(path)),
+                    IsOldVersion = hasParent && !isDuplicateDownloadCopy,
+                    IsDuplicateDownloadCopy = isDuplicateDownloadCopy,
+                    NewerVersionPath = hasParent ? newerPath : null,
+                    AvatarBadgeNames = includeAvatarBadges
+                        && Path.GetExtension(path).Equals(".unitypackage", StringComparison.OrdinalIgnoreCase)
+                        ? AvatarCompatibilityService.DetectAvatarNamesFromFileName(Path.GetFileName(path), avatarProfiles)
+                        : []
                 };
             })
             .OrderBy(x => x.FileName, StringComparer.CurrentCultureIgnoreCase)
             .ThenByDescending(x => x.LastWriteTime)
             .ToList();
+        var entriesByPath = entries.ToDictionary(x => x.FilePath, StringComparer.OrdinalIgnoreCase);
+        foreach (var parentGroup in entries.Where(x => x.NewerVersionPath is not null)
+            .GroupBy(x => x.NewerVersionPath!, StringComparer.OrdinalIgnoreCase))
+        {
+            if (entriesByPath.TryGetValue(parentGroup.Key, out var parent))
+            {
+                parent.OlderVersions = parentGroup
+                    .OrderByDescending(x => x.LastWriteTime)
+                    .ThenBy(x => x.FileName, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+                var duplicateDownloadGroup = parent.OlderVersions.Any(older =>
+                    DownloadUpdateCandidateService.IsDuplicateDownloadFolderPair(
+                        rootPath, parent.FilePath, older.FilePath));
+                if (!duplicateDownloadGroup)
+                {
+                    foreach (var sameNameEntry in entries.Where(x => x.FileName.Equals(
+                        parent.FileName, StringComparison.OrdinalIgnoreCase)))
+                        sameNameEntry.HasDuplicateName = false;
+                }
+            }
+        }
+        return entries;
     }
 
     private static string ClassifyDownloadFile(string path)
@@ -1127,6 +1762,50 @@ public sealed partial class MainWindow : Window
         var expand = !category.IsExpanded;
         foreach (var other in DownloadFileCategories) other.IsExpanded = false;
         category.IsExpanded = expand;
+    }
+
+    private void DownloadDirectoryGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isClosing || sender is not FrameworkElement { Tag: DownloadDirectoryGroup directory }) return;
+        var expand = !directory.IsExpanded;
+        if (expand && directory.Owner is not null)
+        {
+            var siblings = directory.Parent?.Children ?? directory.Owner.DirectoryRoots;
+            foreach (var sibling in siblings)
+                if (!ReferenceEquals(sibling, directory)) sibling.IsExpanded = false;
+        }
+        directory.IsExpanded = expand;
+        directory.Owner?.RefreshVisibleDirectories();
+    }
+
+    private void DownloadDirectoryOpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isClosing || sender is not FrameworkElement { Tag: DownloadDirectoryGroup directory }
+            || string.IsNullOrWhiteSpace(directory.FolderPath) || !Directory.Exists(directory.FolderPath)) return;
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = $"\"{directory.FolderPath}\"",
+            UseShellExecute = true
+        });
+    }
+
+    private async void DownloadImageThumbnail_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (_isClosing || sender is not FrameworkElement { Tag: DownloadFileEntry file } element
+            || !file.SupportsThumbnail || file.ThumbnailImage is null) return;
+        Microsoft.UI.Xaml.Controls.Primitives.FlyoutBase.ShowAttachedFlyout(element);
+        if (file.HasLoadedHoverPreview) return;
+        file.HasLoadedHoverPreview = true;
+        var preview = await ImagePreviewService.LoadAsync(file.FilePath, 720);
+        if (!_isClosing && preview is not null) file.HoverPreviewImage = preview;
+        else file.HasLoadedHoverPreview = false;
+    }
+
+    private void DownloadImageThumbnail_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element)
+            Microsoft.UI.Xaml.Controls.Primitives.FlyoutBase.GetAttachedFlyout(element)?.Hide();
     }
 
     private void DownloadFile_Click(object sender, RoutedEventArgs e)
@@ -1337,12 +2016,16 @@ public sealed partial class MainWindow : Window
             .Select(tag => new DetailTagChip(tag, null, false))
             .ToList();
         DetailBoothTags.ItemsSource = boothTags;
+        DetailBoothTagsTitle.Text = $"BOOTHタグ（{boothTags.Count}）";
+        DetailBoothTagsSection.IsExpanded = false;
         DetailBoothTagsSection.Visibility = boothTags.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        DetailUpdateNotice.Visibility = !isUnpurchased && item.HasFileUpdate
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         DetailPlacement.Text = ImportsToAssetsRoot(item)
             ? "Unity配置先: Assets直下"
             : $"Unity配置先: Assets/{GetImportFolderName(item.Category)}";
         var matches = GetEffectiveCompatibilityMatches(item);
-        var displayedMatches = matches.Where(x => !x.ThroughBaseBody).ToList();
         var isAvatar = item.Category == AssetCategories.Avatar;
         var hasCompatibility = IsCompatibilityCategory(item.Category);
         DetailCompatibilityTitle.Visibility = hasCompatibility ? Visibility.Visible : Visibility.Collapsed;
@@ -1357,13 +2040,12 @@ public sealed partial class MainWindow : Window
             ? [new DetailTagChip("全アバター対応", null, false)]
             : matches.Count == 0
             ? [new DetailTagChip("検出なし", null, false)]
-            : displayedMatches.Select((x, index) => new DetailTagChip(
-                GetAvatarPrimaryIdentifier(x.AvatarRegistrationId), x.AvatarRegistrationId, true, index == 0 ? "" : "/")).ToList();
+            : BuildCompatibilityChips(matches);
         DetailCompatibility.ItemsSource = compatibilityChips;
         var evidenceText = item.SupportsAllAvatars
             ? "全アバター対応として設定されています。"
-            : string.Join("\n", displayedMatches.Select(x => $"• {GetAvatarPrimaryIdentifier(x.AvatarRegistrationId)}（{x.Evidence}）"));
-        DetailCompatibilityEvidenceIcon.Visibility = hasCompatibility && (item.SupportsAllAvatars || displayedMatches.Count > 0)
+            : string.Join("\n", matches.Select(x => $"• {GetAvatarPrimaryIdentifier(x.AvatarRegistrationId)}（{x.Evidence}）"));
+        DetailCompatibilityEvidenceIcon.Visibility = hasCompatibility && (item.SupportsAllAvatars || matches.Count > 0)
             ? Visibility.Visible
             : Visibility.Collapsed;
         ToolTipService.SetToolTip(DetailCompatibilityEvidenceIcon, new TextBlock
@@ -1376,6 +2058,32 @@ public sealed partial class MainWindow : Window
         DetailTagChips.ItemsSource = avatarProfile is null ? null : GetAvatarDetailTags(avatarProfile);
         DetailOpenBoothButton.IsEnabled = item.BoothUrl is not null;
         DetailThumbnail.Source = CreateImageSource(item.ThumbnailUrl);
+    }
+
+    private IReadOnlyList<DetailTagChip> BuildCompatibilityChips(IReadOnlyList<CompatibilityMatch> matches)
+    {
+        var result = new List<DetailTagChip>();
+        var directMatches = matches.Where(match => !match.ThroughBaseBody).ToList();
+        foreach (var direct in directMatches)
+        {
+            var sharedNames = matches
+                .Where(match => match.ThroughBaseBody
+                    && match.Evidence.Equals($"共通素体: {direct.AvatarName}", StringComparison.Ordinal))
+                .Select(match => GetAvatarPrimaryIdentifier(match.AvatarRegistrationId))
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+            var directName = GetAvatarPrimaryIdentifier(direct.AvatarRegistrationId);
+            var text = sharedNames.Count == 0 ? directName : $"{directName}（{string.Join("・", sharedNames)}）";
+            result.Add(new DetailTagChip(text, direct.AvatarRegistrationId, true, result.Count == 0 ? "" : "/"));
+        }
+
+        foreach (var shared in matches.Where(match => match.ThroughBaseBody
+                     && !directMatches.Any(direct => match.Evidence.Equals($"共通素体: {direct.AvatarName}", StringComparison.Ordinal))))
+        {
+            result.Add(new DetailTagChip(GetAvatarPrimaryIdentifier(shared.AvatarRegistrationId),
+                shared.AvatarRegistrationId, true, result.Count == 0 ? "" : "/"));
+        }
+        return result;
     }
 
     private async void DetailDownloadedProducts_Click(object sender, RoutedEventArgs e)
@@ -1526,7 +2234,7 @@ public sealed partial class MainWindow : Window
     private void UpdateOverviewCardWidths(GridView grid, double gridWidth)
     {
         const double cardOuterSpacing = 14;
-        var minimumCardWidth = grid == AvatarGrid ? 180d : grid == ShopGrid ? 240d : 220d;
+        var minimumCardWidth = grid == AvatarGrid ? GetCardMinimumWidth() : grid == ShopGrid ? 240d : 220d;
         var usableWidth = Math.Max(minimumCardWidth + cardOuterSpacing, gridWidth - 2);
         var columns = Math.Max(1, (int)Math.Floor(usableWidth / (minimumCardWidth + cardOuterSpacing)));
         var cardWidth = Math.Max(minimumCardWidth, Math.Floor(usableWidth / columns) - cardOuterSpacing);
@@ -1541,7 +2249,7 @@ public sealed partial class MainWindow : Window
 
     private void UpdateItemCardWidths(double gridWidth)
     {
-        const double minimumCardWidth = 180;
+        var minimumCardWidth = GetCardMinimumWidth();
         const double cardOuterSpacing = 8;
         var usableWidth = Math.Max(minimumCardWidth + cardOuterSpacing, gridWidth - 2);
         var columns = Math.Max(1, (int)Math.Floor(usableWidth / (minimumCardWidth + cardOuterSpacing)));
@@ -1549,10 +2257,47 @@ public sealed partial class MainWindow : Window
         foreach (var item in _allItems) item.CardWidth = Math.Max(minimumCardWidth, cardWidth);
     }
 
+    private double GetCardMinimumWidth() => _cardSizePreset switch
+    {
+        "Small" => 150d,
+        "Large" => 230d,
+        _ => 180d
+    };
+
     private void RootLayout_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdateLibraryHeaderLayout(e.NewSize.Width);
+        UpdateCategoryToolbarLayout(e.NewSize.Width);
         if (DetailPanel.Visibility == Visibility.Visible) UpdateDetailPanelSize(e.NewSize.Width);
+    }
+
+    private void CategoryTabs_SizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdateCategoryToolbarLayout(RootLayout.ActualWidth);
+
+    private void LibraryToolbar_SizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdateCategoryToolbarLayout(RootLayout.ActualWidth);
+
+    private void UpdateCategoryToolbarLayout(double windowWidth)
+    {
+        if (windowWidth <= 0 || _categoryTabButtons.Count == 0) return;
+        var gimmickIndex = _categoryTabButtons.FindIndex(tab => Equals(tab.Tag, "ギミック"));
+        var requiredTabCount = gimmickIndex >= 0 ? gimmickIndex + 1 : _categoryTabButtons.Count;
+        var requiredVisibleWidth = _categoryTabButtons.Take(requiredTabCount)
+            .Sum(tab => Math.Max(tab.ActualWidth, tab.DesiredSize.Width))
+            + Math.Max(0, requiredTabCount - 1) * CategoryTabs.Spacing;
+        if (requiredVisibleWidth <= 0) return;
+        var refreshWidth = Math.Max(RefreshLibraryButton.ActualWidth, RefreshLibraryButton.DesiredSize.Width);
+        if (refreshWidth <= 0) refreshWidth = 150;
+        const double toolbarHorizontalPadding = 48;
+        const double toolbarColumnSpacing = 24;
+        var toolbarWidth = LibraryToolbar.ActualWidth > 0
+            ? LibraryToolbar.ActualWidth
+            : Math.Max(0, windowWidth - 76);
+        var availableTabWidth = Math.Max(0,
+            toolbarWidth - toolbarHorizontalPadding - SortButton.Width - refreshWidth - toolbarColumnSpacing);
+        var useSelector = availableTabWidth < requiredVisibleWidth;
+        CategoryTabsScroller.Visibility = useSelector ? Visibility.Collapsed : Visibility.Visible;
+        CategorySelectorButton.Visibility = useSelector ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateLibraryHeaderLayout(double windowWidth)
@@ -1561,7 +2306,7 @@ public sealed partial class MainWindow : Window
         var compact = windowWidth < 1400;
         var columns = LibraryHeader.ColumnDefinitions;
         CompactFiltersButton.Visibility = popup ? Visibility.Visible : Visibility.Collapsed;
-        foreach (var control in new UIElement[] { SearchBox, AvatarFilterButton, ShopFilterButton, BoothTagFilterButton, FreeDownloadOnlyCheckBox, FileUpdateOnlyCheckBox, ResetFiltersButton })
+        foreach (var control in new UIElement[] { SearchBox, AvatarFilterButton, ShopFilterButton, BoothTagFilterButton, QuickFilterSwitches })
             control.Visibility = popup ? Visibility.Collapsed : Visibility.Visible;
         if (compact)
         {
@@ -1572,50 +2317,126 @@ public sealed partial class MainWindow : Window
             columns[4].Width = new GridLength(0);
             columns[5].Width = new GridLength(0);
             columns[6].Width = new GridLength(0);
-            columns[7].Width = GridLength.Auto;
-            Grid.SetRow(FreeDownloadOnlyCheckBox, 2); Grid.SetColumn(FreeDownloadOnlyCheckBox, 0);
-            Grid.SetRow(FileUpdateOnlyCheckBox, 2); Grid.SetColumn(FileUpdateOnlyCheckBox, 1);
-            Grid.SetRow(ResetFiltersButton, 2); Grid.SetColumn(ResetFiltersButton, 2);
+            columns[7].Width = new GridLength(0);
+            Grid.SetRow(QuickFilterSwitches, 2);
+            Grid.SetColumn(QuickFilterSwitches, 0);
+            Grid.SetColumnSpan(QuickFilterSwitches, 8);
         }
         else
         {
             columns[0].Width = new GridLength(240); columns[1].Width = new GridLength(160); columns[2].Width = new GridLength(160); columns[3].Width = new GridLength(160);
-            columns[4].Width = new GridLength(150); columns[5].Width = new GridLength(140); columns[6].Width = GridLength.Auto; columns[7].Width = new GridLength(1, GridUnitType.Star);
-            Grid.SetRow(FreeDownloadOnlyCheckBox, 1); Grid.SetColumn(FreeDownloadOnlyCheckBox, 4);
-            Grid.SetRow(FileUpdateOnlyCheckBox, 1); Grid.SetColumn(FileUpdateOnlyCheckBox, 5);
-            Grid.SetRow(ResetFiltersButton, 1); Grid.SetColumn(ResetFiltersButton, 6);
+            columns[4].Width = GridLength.Auto; columns[5].Width = GridLength.Auto; columns[6].Width = GridLength.Auto; columns[7].Width = new GridLength(1, GridUnitType.Star);
+            Grid.SetRow(QuickFilterSwitches, 1);
+            Grid.SetColumn(QuickFilterSwitches, 4);
+            Grid.SetColumnSpan(QuickFilterSwitches, 3);
         }
     }
 
     private void CompactSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args) { if (SearchBox.Text != sender.Text) SearchBox.Text = sender.Text; }
-    private void CompactAvatarFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (CompactAvatarFilterBox.SelectedItem is AvatarFilterOption option) { _selectedAvatarFilterId = option.RegistrationId; AvatarFilterButtonText.Text = option.PrimaryIdentifier; _currentPage = 1; ApplyFilter(); } }
+    private void CompactAvatarFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (CompactAvatarFilterBox.SelectedItem is AvatarFilterOption option) { _selectedAvatarFilterId = option.RegistrationId; AvatarFilterButtonText.Text = option.PrimaryIdentifier; UpdateAvatarFilterDependentControls(); _currentPage = 1; ApplyFilter(); } }
     private void CompactShopFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (CompactShopFilterBox.SelectedItem is ShopFilterOption option) { _selectedShopFilter = option.ShopName; ShopFilterButtonText.Text = option.DisplayName; _currentPage = 1; ApplyFilter(); } }
     private void CompactBoothTagFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (CompactBoothTagFilterBox.SelectedItem is BoothTagSummary option) { _selectedBoothTag = option.Count == 0 ? null : option.Name; BoothTagFilterButtonText.Text = _selectedBoothTag ?? "タグ指定なし"; _currentPage = 1; ApplyFilter(); } }
-    private void CompactFreeDownloadOnlyCheckBox_Changed(object sender, RoutedEventArgs e) { if (FreeDownloadOnlyCheckBox.IsChecked != CompactFreeDownloadOnlyCheckBox.IsChecked) FreeDownloadOnlyCheckBox.IsChecked = CompactFreeDownloadOnlyCheckBox.IsChecked; }
-    private void CompactFileUpdateOnlyCheckBox_Changed(object sender, RoutedEventArgs e) { if (FileUpdateOnlyCheckBox.IsChecked != CompactFileUpdateOnlyCheckBox.IsChecked) FileUpdateOnlyCheckBox.IsChecked = CompactFileUpdateOnlyCheckBox.IsChecked; }
+    private void CompactFreeDownloadOnlySwitch_Toggled(object sender, RoutedEventArgs e) { if (FreeDownloadOnlySwitch.IsOn != CompactFreeDownloadOnlySwitch.IsOn) FreeDownloadOnlySwitch.IsOn = CompactFreeDownloadOnlySwitch.IsOn; }
+    private void CompactFileUpdateOnlySwitch_Toggled(object sender, RoutedEventArgs e) { if (FileUpdateOnlySwitch.IsOn != CompactFileUpdateOnlySwitch.IsOn) FileUpdateOnlySwitch.IsOn = CompactFileUpdateOnlySwitch.IsOn; }
+    private void CompactExcludeSharedBodySwitch_Toggled(object sender, RoutedEventArgs e) { if (ExcludeSharedBodySwitch.IsOn != CompactExcludeSharedBodySwitch.IsOn) ExcludeSharedBodySwitch.IsOn = CompactExcludeSharedBodySwitch.IsOn; }
 
     private void UpdateDetailPanelSize(double windowWidth)
     {
-        var compact = windowWidth < 1080;
-        var panelWidth = compact ? 300d : 420d;
-        var contentWidth = compact ? 240d : 360d;
+        var defaultWidth = windowWidth < 1080 ? 300d : 420d;
+        var maximumForWindow = Math.Max(MinimumDetailPanelWidth,
+            Math.Min(MaximumDetailPanelWidth, windowWidth - 76d - 360d));
+        var panelWidth = Math.Clamp(_preferredDetailPanelWidth ?? defaultWidth,
+            MinimumDetailPanelWidth, maximumForWindow);
+        // Reserve the resize grip, content padding and scrollbar so right-edge controls are never clipped.
+        var contentWidth = panelWidth - 76d;
         DetailPanel.Width = panelWidth;
-        DetailPanelContent.Width = panelWidth;
         DetailThumbnailBorder.Width = contentWidth;
         DetailThumbnailBorder.Height = contentWidth;
         DetailLinkRow.Width = contentWidth;
-        DetailEditButtonText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        DetailEditButtonText.Visibility = panelWidth < 380d ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void DetailPanelResizeGrip_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(RootLayout);
+        if (!point.Properties.IsLeftButtonPressed) return;
+        _isResizingDetailPanel = DetailPanelResizeGrip.CapturePointer(e.Pointer);
+        if (!_isResizingDetailPanel) return;
+        _detailResizeStartX = point.Position.X;
+        _detailResizeStartWidth = DetailPanel.Width;
+        e.Handled = true;
+    }
+
+    private void DetailPanelResizeGrip_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizingDetailPanel) return;
+        var currentX = e.GetCurrentPoint(RootLayout).Position.X;
+        _preferredDetailPanelWidth = Math.Clamp(
+            _detailResizeStartWidth + (_detailResizeStartX - currentX),
+            MinimumDetailPanelWidth, MaximumDetailPanelWidth);
+        UpdateDetailPanelSize(RootLayout.ActualWidth);
+        e.Handled = true;
+    }
+
+    private void DetailPanelResizeGrip_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizingDetailPanel) return;
+        DetailPanelResizeGrip.ReleasePointerCapture(e.Pointer);
+        FinishDetailPanelResize();
+        e.Handled = true;
+    }
+
+    private void DetailPanelResizeGrip_PointerCanceled(object sender, PointerRoutedEventArgs e)
+        => FinishDetailPanelResize();
+
+    private void DetailPanelResizeGrip_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+        => FinishDetailPanelResize();
+
+    private void FinishDetailPanelResize()
+    {
+        if (!_isResizingDetailPanel) return;
+        _isResizingDetailPanel = false;
+        if (_preferredDetailPanelWidth is double width)
+        {
+            _ = Task.Run(() => _metadataStore.SaveDetailPanelWidth(width));
+            _isApplyingDetailPanelSizeSetting = true;
+            DetailPanelSizeBox.SelectedIndex = 3;
+            _isApplyingDetailPanelSizeSetting = false;
+        }
     }
 
     private void AvatarMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.Avatar);
     private void LibraryMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.Library);
     private void ShopMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.Shop);
     private void BoothTagsMenu_Click(object sender, RoutedEventArgs e) => SetActivePage(AppPage.BoothTags);
+    private async void ImportSettingsMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
+        SetActivePage(AppPage.ImportSettings);
+    }
     private async void SettingsMenu_Click(object sender, RoutedEventArgs e)
     {
         if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
         SetActivePage(AppPage.Settings);
         await Task.CompletedTask;
+    }
+
+    private async void PrivacyMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
+        SetActivePage(AppPage.Privacy);
+    }
+
+    private async void HelpMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
+        SetActivePage(AppPage.Help);
+    }
+
+    private async void AppVersionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
+        SetActivePage(AppPage.Changelog);
     }
 
     private void PopulateImportSettings()
@@ -1678,7 +2499,9 @@ public sealed partial class MainWindow : Window
 
         await Task.Run(() => _metadataStore.SaveCategoryImportSettings(settings));
         _categoryImportSettings = settings.ToDictionary(x => x.Category, StringComparer.Ordinal);
-        ImportSettingsStatus.Text = "Unityインポート先設定を保存しました。";
+        ImportSettingsStatus.Text = string.Empty;
+        ShowOperationPopup(OperationPopupKind.Success, "Unityインポート先を変更しました",
+            "分類ごとのインポート先設定を保存しました。", autoDismiss: true);
         if (_detailItem is not null)
         {
             UpdateDetailPanel();
@@ -1704,12 +2527,88 @@ public sealed partial class MainWindow : Window
         AvatarPage.Visibility = page == AppPage.Avatar ? Visibility.Visible : Visibility.Collapsed;
         ShopPage.Visibility = page == AppPage.Shop ? Visibility.Visible : Visibility.Collapsed;
         BoothTagsPage.Visibility = page == AppPage.BoothTags ? Visibility.Visible : Visibility.Collapsed;
+        ImportSettingsPage.Visibility = page == AppPage.ImportSettings ? Visibility.Visible : Visibility.Collapsed;
         SettingsPage.Visibility = page == AppPage.Settings ? Visibility.Visible : Visibility.Collapsed;
+        HelpPage.Visibility = page == AppPage.Help ? Visibility.Visible : Visibility.Collapsed;
+        ChangelogPage.Visibility = page == AppPage.Changelog ? Visibility.Visible : Visibility.Collapsed;
+        PrivacyPage.Visibility = page == AppPage.Privacy ? Visibility.Visible : Visibility.Collapsed;
         SetMenuAppearance(AvatarMenuButton, page == AppPage.Avatar);
         SetMenuAppearance(LibraryMenuButton, page == AppPage.Library);
         SetMenuAppearance(ShopMenuButton, page == AppPage.Shop);
         SetMenuAppearance(BoothTagsMenuButton, page == AppPage.BoothTags);
+        SetMenuAppearance(ImportSettingsMenuButton, page == AppPage.ImportSettings);
         SetMenuAppearance(SettingsMenuButton, page == AppPage.Settings);
+        SetMenuAppearance(HelpMenuButton, page == AppPage.Help);
+        SetMenuAppearance(PrivacyMenuButton, page == AppPage.Privacy);
+        AppVersionButton.Background = new SolidColorBrush(page == AppPage.Changelog
+            ? Windows.UI.Color.FromArgb(48, 208, 87, 92)
+            : Windows.UI.Color.FromArgb(22, 208, 87, 92));
+        AnimatePageEntrance(page);
+    }
+
+    private void AnimatePageEntrance(AppPage page)
+    {
+        var targets = page switch
+        {
+            AppPage.Library => new FrameworkElement[] { LibraryHeader, LibraryToolbar, LibraryContent, LibraryPager },
+            AppPage.Avatar => [AvatarPage],
+            AppPage.Shop => [ShopPage],
+            AppPage.BoothTags => [BoothTagsPage],
+            AppPage.ImportSettings => [ImportSettingsPage],
+            AppPage.Settings => [SettingsPage],
+            AppPage.Help => [HelpPage],
+            AppPage.Changelog => [ChangelogPage],
+            AppPage.Privacy => [PrivacyPage],
+            _ => []
+        };
+        foreach (var target in targets)
+        {
+            target.Opacity = 0;
+            target.RenderTransform = new CompositeTransform { TranslateY = 8 };
+            var storyboard = new Storyboard();
+            var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var fade = new DoubleAnimation { From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(170), EasingFunction = easing };
+            var slide = new DoubleAnimation { From = 8, To = 0, Duration = TimeSpan.FromMilliseconds(220), EasingFunction = easing };
+            Storyboard.SetTarget(fade, target);
+            Storyboard.SetTargetProperty(fade, "Opacity");
+            Storyboard.SetTarget(slide, target);
+            Storyboard.SetTargetProperty(slide, "(UIElement.RenderTransform).(CompositeTransform.TranslateY)");
+            storyboard.Children.Add(fade);
+            storyboard.Children.Add(slide);
+            storyboard.Begin();
+        }
+
+        var activeButton = page switch
+        {
+            AppPage.Avatar => AvatarMenuButton,
+            AppPage.Library => LibraryMenuButton,
+            AppPage.Shop => ShopMenuButton,
+            AppPage.BoothTags => BoothTagsMenuButton,
+            AppPage.ImportSettings => ImportSettingsMenuButton,
+            AppPage.Settings => SettingsMenuButton,
+            AppPage.Help => HelpMenuButton,
+            AppPage.Privacy => PrivacyMenuButton,
+            AppPage.Changelog => AppVersionButton,
+            _ => null
+        };
+        if (activeButton is null) return;
+        activeButton.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5);
+        activeButton.RenderTransform = new CompositeTransform { ScaleX = 0.96, ScaleY = 0.96 };
+        var buttonStoryboard = new Storyboard();
+        foreach (var property in new[] { "(UIElement.RenderTransform).(CompositeTransform.ScaleX)", "(UIElement.RenderTransform).(CompositeTransform.ScaleY)" })
+        {
+            var animation = new DoubleAnimation
+            {
+                From = 0.96,
+                To = 1,
+                Duration = TimeSpan.FromMilliseconds(190),
+                EasingFunction = new BackEase { Amplitude = 0.18, EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(animation, activeButton);
+            Storyboard.SetTargetProperty(animation, property);
+            buttonStoryboard.Children.Add(animation);
+        }
+        buttonStoryboard.Begin();
     }
 
     private static void SetMenuAppearance(Button button, bool active)
@@ -1867,11 +2766,12 @@ public sealed partial class MainWindow : Window
         SearchBox.Text = string.Empty;
         _selectedCategory = AllCategories;
         _selectedAvatarFilterId = null;
+        UpdateAvatarFilterDependentControls();
         AvatarFilterButtonText.Text = "すべての対応アバター";
         _selectedPurchasedPackType = null;
-        FreeDownloadOnlyCheckBox.IsChecked = false;
+        FreeDownloadOnlySwitch.IsOn = false;
         _showFileUpdatesOnly = false;
-        FileUpdateOnlyCheckBox.IsChecked = false;
+        FileUpdateOnlySwitch.IsOn = false;
         _selectedShopFilter = _detailItem.ShopName;
         ShopFilterButtonText.Text = _detailItem.ShopName;
         foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
@@ -1895,6 +2795,7 @@ public sealed partial class MainWindow : Window
         if (sender is not FrameworkElement { Tag: DetailTagChip { IsClickable: true, AvatarRegistrationId: not null } chip }) return;
         _selectedAvatarFilterId = chip.AvatarRegistrationId;
         AvatarFilterButtonText.Text = GetAvatarPrimaryIdentifier(chip.AvatarRegistrationId);
+        UpdateAvatarFilterDependentControls();
         SearchBox.Text = string.Empty;
         _selectedShopFilter = null;
         ShopFilterButtonText.Text = "すべてのショップ";
@@ -1925,6 +2826,7 @@ public sealed partial class MainWindow : Window
         _selectedCategory = AllCategories;
         _selectedAvatarFilterId = null;
         AvatarFilterButtonText.Text = "すべての対応アバター";
+        UpdateAvatarFilterDependentControls();
         _selectedShopFilter = null;
         ShopFilterButtonText.Text = "すべてのショップ";
         foreach (var tab in _categoryTabButtons) UpdateCategoryTabAppearance(tab);
@@ -2214,6 +3116,7 @@ public sealed partial class MainWindow : Window
             var uri = Uri.TryCreate(source, UriKind.Absolute, out var absolute)
                 ? absolute
                 : new Uri(Path.GetFullPath(source));
+            if (uri.Scheme is "http" or "https" && !BoothNetworkPolicy.IsTrustedImageUri(uri)) return null;
             return new BitmapImage(uri);
         }
         catch { return null; }

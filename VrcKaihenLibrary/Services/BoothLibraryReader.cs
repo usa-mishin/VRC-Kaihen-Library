@@ -127,6 +127,7 @@ public sealed class BoothLibraryReader
             var thumbnail = reader.IsDBNull(5) ? null : reader.GetString(5);
             if (thumbnail is null && !reader.IsDBNull(6) && !string.IsNullOrWhiteSpace(folder))
                 thumbnail = Path.Combine(folder, reader.GetString(6));
+            thumbnail = BoothNetworkPolicy.FilterImageSource(thumbnail);
 
             result.Add(new LibraryItem
             {
@@ -149,7 +150,8 @@ public sealed class BoothLibraryReader
                 HasBoothVariationRows = !reader.IsDBNull(14) && reader.GetBoolean(14),
                 HasPurchasedVariationOrder = !reader.IsDBNull(15) && reader.GetBoolean(15),
                 HasFileUpdate = !reader.IsDBNull(16) && reader.GetBoolean(16),
-                ShopThumbnailUrl = reader.IsDBNull(17) ? null : reader.GetString(17)
+                ShopThumbnailUrl = BoothNetworkPolicy.FilterImageSource(
+                    reader.IsDBNull(17) ? null : reader.GetString(17))
             });
         }
         return result;

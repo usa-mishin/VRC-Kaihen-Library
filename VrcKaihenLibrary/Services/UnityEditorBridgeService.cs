@@ -59,12 +59,12 @@ internal static class VrcKaihenLibraryPackageImportBridge
             if (!string.IsNullOrWhiteSpace(packagePath) && File.Exists(packagePath))
             {
                 _pendingPackagePath = packagePath;
-                Debug.Log("VrcKaihenLibrary: import queued: " + packagePath);
+                Debug.Log("VrcKaihenLibrary: import queued: " + Path.GetFileName(packagePath));
                 EditorApplication.delayCall += BeginImport;
             }
-            else Debug.LogError("VrcKaihenLibrary: import package was not found: " + packagePath);
+            else Debug.LogError("VrcKaihenLibrary: requested import package was not found.");
         }
-        catch (Exception exception) { Debug.LogException(exception); }
+        catch (Exception) { Debug.LogError("VrcKaihenLibrary: import request could not be read."); }
     }
 
     private static void BeginImport()
@@ -73,10 +73,10 @@ internal static class VrcKaihenLibraryPackageImportBridge
         _pendingPackagePath = null;
         if (string.IsNullOrWhiteSpace(packagePath) || !File.Exists(packagePath))
         {
-            Debug.LogError("VrcKaihenLibrary: queued package was not found: " + packagePath);
+            Debug.LogError("VrcKaihenLibrary: queued package was not found.");
             return;
         }
-        Debug.Log("VrcKaihenLibrary: opening import dialog: " + packagePath);
+        Debug.Log("VrcKaihenLibrary: opening import dialog: " + Path.GetFileName(packagePath));
         AssetDatabase.ImportPackage(packagePath, true);
     }
 }

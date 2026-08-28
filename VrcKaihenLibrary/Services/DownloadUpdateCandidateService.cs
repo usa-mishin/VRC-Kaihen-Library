@@ -10,35 +10,116 @@ namespace VrcKaihenLibrary.Services;
 public static partial class DownloadUpdateCandidateService
 {
     public static IReadOnlySet<string> FindUnityPackageCandidates(string rootPath, IEnumerable<string> unityPackagePaths)
-    {
-        var packages = unityPackagePaths
-            .Select(path => new PackageVersionInfo(path, ReadPackageIdentity(rootPath, path)))
-            .ToList();
-        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        => FindUnityPackageVersionParents(rootPath, unityPackagePaths).Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var current in packages)
+    public static IReadOnlyDictionary<string, string> FindUnityPackageVersionParents(
+        string rootPath, IEnumerable<string> unityPackagePaths)
+    {
+        var paths = unityPackagePaths.ToList();
+        var duplicateFileNames = paths
+            .GroupBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+            .Where(x => x.Count() > 1)
+            .Select(x => x.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var packages = paths
+            .Select(path => new PackageVersionInfo(path, ReadPackageIdentity(rootPath, path,
+                duplicateFileNames.Contains(Path.GetFileName(path)))))
+            .ToList();
+        var parents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var family in packages
+            .Where(x => x.Identity.Family.Length >= 4)
+            .GroupBy(x => x.Identity.Family, StringComparer.OrdinalIgnoreCase))
         {
-            foreach (var other in packages)
-            {
-                if (ReferenceEquals(current, other)) continue;
-                if (current.Identity.Family.Length < 4
-                    || !current.Identity.Family.Equals(other.Identity.Family, StringComparison.OrdinalIgnoreCase)
-                    || other.Identity.Version is null)
-                    continue;
-                if (current.Identity.Version is null || current.Identity.Version < other.Identity.Version)
-                    candidates.Add(current.Path);
-                if (candidates.Contains(current.Path)) break;
-            }
+            var newest = family
+                .Where(x => x.Identity.Version is not null)
+                .OrderByDescending(x => x.Identity.Version)
+                .ThenByDescending(x => File.GetLastWriteTimeUtc(x.Path))
+                .FirstOrDefault();
+            if (newest is null) continue;
+
+            foreach (var older in family.Where(x => !ReferenceEquals(x, newest)
+                && (x.Identity.Version is null || x.Identity.Version < newest.Identity.Version)))
+                parents[older.Path] = newest.Path;
         }
 
-        return candidates;
+        AddDuplicateDownloadFolderParents(rootPath, packages, parents);
+
+        return parents;
     }
 
-    private static VersionedName ReadPackageIdentity(string rootPath, string packagePath)
+    public static bool IsDuplicateDownloadFolderPair(string rootPath, string firstPath, string secondPath)
+    {
+        var first = ReadTopLevelDownloadFolder(rootPath, firstPath);
+        var second = ReadTopLevelDownloadFolder(rootPath, secondPath);
+        return first is not null
+            && second is not null
+            && first.BaseName.Equals(second.BaseName, StringComparison.OrdinalIgnoreCase)
+            && first.CopyNumber != second.CopyNumber;
+    }
+
+    private static void AddDuplicateDownloadFolderParents(
+        string rootPath,
+        IReadOnlyList<PackageVersionInfo> packages,
+        IDictionary<string, string> parents)
+    {
+        var folderPackages = packages
+            .Select(package => new
+            {
+                Package = package,
+                Folder = ReadTopLevelDownloadFolder(rootPath, package.Path)
+            })
+            .Where(x => x.Folder is not null)
+            .Select(x => new { x.Package, Folder = x.Folder! })
+            .ToList();
+
+        foreach (var duplicate in folderPackages.Where(x => x.Folder.CopyNumber >= 2))
+        {
+            if (parents.ContainsKey(duplicate.Package.Path)) continue;
+
+            var original = folderPackages
+                .Where(candidate => !candidate.Package.Path.Equals(duplicate.Package.Path, StringComparison.OrdinalIgnoreCase)
+                    && Path.GetFileName(candidate.Package.Path).Equals(
+                        Path.GetFileName(duplicate.Package.Path), StringComparison.OrdinalIgnoreCase)
+                    && candidate.Folder.BaseName.Equals(
+                        duplicate.Folder.BaseName, StringComparison.OrdinalIgnoreCase)
+                    && candidate.Folder.CopyNumber < duplicate.Folder.CopyNumber)
+                .OrderBy(candidate => candidate.Folder.CopyNumber)
+                .ThenByDescending(candidate => File.GetLastWriteTimeUtc(candidate.Package.Path))
+                .FirstOrDefault();
+
+            if (original is not null) parents[duplicate.Package.Path] = original.Package.Path;
+        }
+    }
+
+    private static DownloadFolderIdentity? ReadTopLevelDownloadFolder(string rootPath, string packagePath)
     {
         var relativePath = Path.GetRelativePath(rootPath, packagePath);
-        var components = relativePath.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
-            .Select(Path.GetFileNameWithoutExtension)
+        var components = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        if (components.Length < 2) return null;
+
+        var folderName = components[0].Normalize(NormalizationForm.FormKC).Trim();
+        var match = DuplicateDownloadFolderRegex().Match(folderName);
+        if (!match.Success || !int.TryParse(match.Groups[1].Value, out var copyNumber))
+            return new DownloadFolderIdentity(folderName, 1);
+
+        var baseName = folderName[..match.Index].TrimEnd();
+        return string.IsNullOrWhiteSpace(baseName)
+            ? null
+            : new DownloadFolderIdentity(baseName, copyNumber + 1);
+    }
+
+    private static VersionedName ReadPackageIdentity(
+        string rootPath, string packagePath, bool useImmediateParentVersion)
+    {
+        var relativePath = Path.GetRelativePath(rootPath, packagePath);
+        var pathComponents = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        var components = pathComponents
+            .Select((component, index) => index == pathComponents.Length - 1
+                ? Path.GetFileNameWithoutExtension(component)
+                : component)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => CreateVersionedName(x!))
             .ToList();
@@ -53,6 +134,8 @@ public static partial class DownloadUpdateCandidateService
                 || fileName.Family.Contains(directory.Family, StringComparison.OrdinalIgnoreCase))
                 return new VersionedName(fileName.Family, directory.Version);
         }
+        if (useImmediateParentVersion && components.Count >= 2 && components[^2].Version is not null)
+            return new VersionedName(fileName.Family, components[^2].Version);
         return fileName;
     }
 
@@ -79,6 +162,10 @@ public static partial class DownloadUpdateCandidateService
 
     private sealed record PackageVersionInfo(string Path, VersionedName Identity);
     private sealed record VersionedName(string Family, Version? Version);
+    private sealed record DownloadFolderIdentity(string BaseName, int CopyNumber);
+
+    [GeneratedRegex(@"\s*\((\d+)\)\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex DuplicateDownloadFolderRegex();
 
     [GeneratedRegex(@"(?:^|[\s_.-])(?:(?:v(?:er(?:sion)?)?\.?\s*)\d+(?:[._-]\d+){0,3}|\d+(?:[._-]\d+){1,3})[a-z]?\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex VersionSuffixRegex();

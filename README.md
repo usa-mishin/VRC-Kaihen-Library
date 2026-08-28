@@ -1,6 +1,6 @@
 # VRC改変ライブラリ（BLM拡張）（VrcKaihenLibrary）
 
-BOOTH Library Manager（BLM）が管理する VRChat 向け商品を整理し、Unity プロジェクトへの導入を支援する Windows デスクトップアプリです。
+BOOTH Library Manager（BLM）が管理する VRChat 向け商品を整理し、Unity プロジェクトへの導入を支援する非公式の Windows デスクトップアプリです。BOOTHおよびBOOTH Library Managerの運営元による提供・保証・提携を受けた製品ではありません。
 
 ## 主な機能
 
@@ -33,6 +33,18 @@ dotnet build VrcKaihenLibrary.slnx -c Debug -p:Platform=x64
 
 BLM DB には書き込みません。分類、対応アバター、配置設定などは本アプリ専用 DB に保存します。旧名 `VrcKaihenManager` の DB があり、新 DB がまだない場合は初回起動時にバックアップコピーして移行します。
 
+## プライバシーと安全性
+
+- 広告、利用状況解析、クラッシュ自動送信、独自サーバーへのデータ送信はありません。
+- BLM DB は読み取り専用で開き、設定だけを本アプリ専用DBへ保存します。
+- サムネイルの自動通信先は HTTPS のBOOTH公式ドメインに制限します。
+- UnityPackageは安全な作業領域へ展開し、リンク、絶対パス、パストラバーサル、特殊項目、過大な項目数・展開容量を拒否します。
+- Unityプロジェクトの変更と重複整理は、ユーザーが該当操作を選んだ場合だけ実行します。
+
+詳しくはアプリ左下の「ポリシー」、[プライバシーポリシー](docs/PRIVACY.md)、[セキュリティ方針](SECURITY.md)を参照してください。本アプリはBOOTHおよびBOOTH Library Managerの非公式ツールです。
+
+BLM連携の取得項目、通信境界、同意導線、検証証跡、運営元への確認事項は[BOOTH Library Manager 連携監査](docs/BOOTH-INTEGRATION-AUDIT.md)にまとめています。
+
 ## MSIX の開発用ビルド
 
 ```powershell
@@ -63,5 +75,11 @@ winget install --id JRSoftware.InnoSetup -e
 生成物は `artifacts/installer` に保存されます。更新時は同じインストーラーをより大きな版番号で生成し、既存環境で実行すると上書き更新されます。詳細は [docs/EXE-DISTRIBUTION.md](docs/EXE-DISTRIBUTION.md) を参照してください。
 
 ## 開発を再開する方へ
+
+公開前に個人情報・秘密情報・ローカル設定を確認する場合は、[オープンソース公開前チェック](docs/OPEN-SOURCE-CHECKLIST.md) も参照してください。
+
+## ライセンス
+
+本プロジェクトは [MIT License](LICENSE) で提供します。利用しているライブラリについては [Third-party notices](THIRD-PARTY-NOTICES.md) を参照してください。
 
 最初に [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を読んでください。現在の構成、壊してはいけない前提、確認済みの制約、検証手順をまとめています。
