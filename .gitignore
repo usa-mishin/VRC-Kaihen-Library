@@ -20,6 +20,7 @@ artifacts/
 .codex/
 .claude/
 .cursor/
+AGENTS.md
 AGENTS.local.md
 
 # Local diagnostics and temporary investigation data
