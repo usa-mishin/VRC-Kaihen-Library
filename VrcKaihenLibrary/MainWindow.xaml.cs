@@ -325,6 +325,7 @@ public sealed partial class MainWindow : Window
     private bool _isApplyingDetailPanelSizeSetting = true;
     private string _cardSizePreset = "Medium";
     private bool _isApplyingCardSizeSetting = true;
+    private bool _updateCheckInProgress;
     private bool _isResizingDetailPanel;
     private double _detailResizeStartX;
     private double _detailResizeStartWidth;
@@ -380,6 +381,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         await LoadLibraryAsync();
+        _ = CheckForLatestReleaseAsync();
     }
 
     private Task WaitForRootLayoutLoadedAsync()
@@ -2445,7 +2447,7 @@ public sealed partial class MainWindow : Window
     {
         if (DetailPanel.Visibility == Visibility.Visible) await CloseDetailPanelAsync();
         SetActivePage(AppPage.Changelog);
-        await CheckForLatestReleaseAsync();
+        await CheckForLatestReleaseAsync(openReleasePage: true);
     }
 
     private void GitHubReleasesButton_Click(object sender, RoutedEventArgs e)
@@ -2453,8 +2455,10 @@ public sealed partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
     }
 
-    private async Task CheckForLatestReleaseAsync()
+    private async Task CheckForLatestReleaseAsync(bool openReleasePage = false)
     {
+        if (_updateCheckInProgress) return;
+        _updateCheckInProgress = true;
         ShowOperationPopup(OperationPopupKind.Progress, "リリースを確認中", "GitHubの公開リリースを確認しています…");
         try
         {
@@ -2468,19 +2472,25 @@ public sealed partial class MainWindow : Window
             var currentText = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
             if (Version.TryParse(latestText, out var latest) && Version.TryParse(currentText, out var current) && latest > current)
             {
-                ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "GitHub Releasesから最新版をダウンロードできます。ブラウザーでリリースページを開きます。", autoDismiss: true);
-                Process.Start(new ProcessStartInfo(url ?? GitHubReleasesUrl) { UseShellExecute = true });
+                LatestVersionBadge.Visibility = Visibility.Visible;
+                ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "GitHub Releasesから最新版をダウンロードできます。バージョン情報ページでリリースを開けます。", autoDismiss: true);
+                if (openReleasePage) Process.Start(new ProcessStartInfo(url ?? GitHubReleasesUrl) { UseShellExecute = true });
             }
             else
             {
-                ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。リリース一覧をブラウザーで開きます。", autoDismiss: true);
-                Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
+                LatestVersionBadge.Visibility = Visibility.Collapsed;
+                ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: true);
+                if (openReleasePage) Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
             }
         }
         catch
         {
-            ShowOperationPopup(OperationPopupKind.Information, "リリースページを開きます", "最新バージョンの自動確認に失敗したため、GitHubのリリース一覧を開きます。", autoDismiss: true);
-            Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
+            ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: true);
+            if (openReleasePage) Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
+        }
+        finally
+        {
+            _updateCheckInProgress = false;
         }
     }
 
