@@ -8,7 +8,7 @@
 
 ## 現在の状態
 
-- GitHub: `https://github.com/usa-mishin/VrcKaihenLibrary.git`
+- 公開GitHub: `https://github.com/usa-mishin/VRC-Kaihen-Library.git`
 - ソリューション: `VrcKaihenLibrary.slnx`
 - アプリ: .NET 8 / WinUI 3 / Windows App SDK 2.3
 - 対応プラットフォーム: x86 / x64 / ARM64
