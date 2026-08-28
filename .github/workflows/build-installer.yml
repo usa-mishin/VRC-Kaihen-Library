@@ -47,7 +47,7 @@ jobs:
           if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
             throw "Invalid four-part version: $version"
           }
-          $installer = .\scripts\Build-ExeInstaller.ps1 -Version $version -Platform x64
+          $installer = .\scripts\Build-ExeInstaller.ps1 -Version $version -Platform x64 | Select-Object -Last 1
           $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
           $hashFile = Join-Path (Split-Path -Parent $installer) "$(Split-Path -Leaf $installer).sha256"
           "$hash  $(Split-Path -Leaf $installer)" | Set-Content -LiteralPath $hashFile -Encoding ascii
