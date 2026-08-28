@@ -102,25 +102,25 @@
             <Grid Padding="0,18,0,0">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <StackPanel Spacing="0">
-                <controls:HandCursorButton x:Name="AvatarMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="AvatarMenu_Click" Background="#FFD0575C" Foreground="White">
+                <controls:HandCursorButton x:Name="AvatarMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="AvatarMenu_Click" Background="#FFC94F78" Foreground="White">
                     <StackPanel Spacing="5"><FontIcon Glyph="&#xE77B;" FontSize="23"/><TextBlock Text="アバター" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
                 </controls:HandCursorButton>
-                <controls:HandCursorButton x:Name="LibraryMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="LibraryMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                <controls:HandCursorButton x:Name="LibraryMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="LibraryMenu_Click" Background="Transparent" Foreground="#FFC94F78">
                     <StackPanel Spacing="5"><FontIcon Glyph="&#xE8A9;" FontSize="23"/><TextBlock Text="改変アイテム" FontSize="11" HorizontalAlignment="Center"/></StackPanel>
                 </controls:HandCursorButton>
-                <controls:HandCursorButton x:Name="ShopMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="ShopMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                <controls:HandCursorButton x:Name="ShopMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="ShopMenu_Click" Background="Transparent" Foreground="#FFC94F78">
                     <StackPanel Spacing="5"><FontIcon Glyph="&#xE719;" FontSize="23"/><TextBlock Text="ショップ" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
                 </controls:HandCursorButton>
-                <controls:HandCursorButton x:Name="BoothTagsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="BoothTagsMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                <controls:HandCursorButton x:Name="BoothTagsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="BoothTagsMenu_Click" Background="Transparent" Foreground="#FFC94F78">
                     <StackPanel Spacing="5"><FontIcon Glyph="&#xE8EC;" FontSize="23"/><TextBlock Text="BOOTHタグ" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
                 </controls:HandCursorButton>
-                <controls:HandCursorButton x:Name="ImportSettingsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="ImportSettingsMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                <controls:HandCursorButton x:Name="ImportSettingsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="ImportSettingsMenu_Click" Background="Transparent" Foreground="#FFC94F78">
                     <StackPanel Spacing="4"><FontIcon Glyph="&#xE7B8;" FontSize="23"/><TextBlock FontSize="9" LineHeight="11" TextAlignment="Center" HorizontalAlignment="Center"><Run Text="Unity"/><LineBreak/><Run Text="インポート先"/></TextBlock></StackPanel>
                 </controls:HandCursorButton>
-                <controls:HandCursorButton x:Name="SettingsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="SettingsMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                <controls:HandCursorButton x:Name="SettingsMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="SettingsMenu_Click" Background="Transparent" Foreground="#FFC94F78">
                     <StackPanel Spacing="5"><FontIcon Glyph="&#xE713;" FontSize="23"/><TextBlock Text="表示設定" FontSize="10" HorizontalAlignment="Center"/></StackPanel>
                 </controls:HandCursorButton>
-                <controls:HandCursorButton x:Name="HelpMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="HelpMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                <controls:HandCursorButton x:Name="HelpMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="HelpMenu_Click" Background="Transparent" Foreground="#FFC94F78">
                     <StackPanel Spacing="5">
                         <Viewbox Width="24" Height="24" HorizontalAlignment="Center">
                             <Path Width="24" Height="24" Data="M3,2 L12,7 L21,2 L21,14 L12,22 L3,14 Z M12,7 L12,22"
@@ -132,16 +132,16 @@
                 </controls:HandCursorButton>
                 </StackPanel>
                 <StackPanel Grid.Row="2" Spacing="2" HorizontalAlignment="Center">
-                    <controls:HandCursorButton x:Name="PrivacyMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="PrivacyMenu_Click" Background="Transparent" Foreground="#FFD0575C">
+                    <controls:HandCursorButton x:Name="PrivacyMenuButton" Style="{StaticResource SideMenuButtonStyle}" Click="PrivacyMenu_Click" Background="Transparent" Foreground="#FFC94F78">
                         <StackPanel Spacing="5"><FontIcon Glyph="&#xE72E;" FontSize="23"/><TextBlock Text="ポリシー" FontSize="11" HorizontalAlignment="Center"/></StackPanel>
                     </controls:HandCursorButton>
-                    <Border Margin="7,2,7,0" Padding="7,3" CornerRadius="7" Background="#10D0575C" BorderBrush="#38D0575C" BorderThickness="1">
-                        <TextBlock Text="非公式" Foreground="#FFD0575C" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <Border Margin="7,2,7,0" Padding="7,3" CornerRadius="7" Background="#10C94F78" BorderBrush="#38C94F78" BorderThickness="1">
+                        <TextBlock Text="非公式" Foreground="#FFC94F78" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                     </Border>
                     <controls:HandCursorButton x:Name="AppVersionButton" Click="AppVersionButton_Click" Margin="5,5,5,12" MinWidth="64" Padding="5,5"
-                            CornerRadius="10" Background="#16D0575C" BorderBrush="#45D0575C" BorderThickness="1"
+                            CornerRadius="10" Background="#16C94F78" BorderBrush="#45C94F78" BorderThickness="1"
                             HorizontalContentAlignment="Stretch" ToolTipService.ToolTip="変更履歴を表示">
-                        <TextBlock x:Name="AppVersionText" Text="v1.0.0.0" Foreground="#FFD0575C" FontSize="11" FontWeight="SemiBold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="AppVersionText" Text="v1.0.0.0" Foreground="#FFC94F78" FontSize="11" FontWeight="SemiBold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     </controls:HandCursorButton>
                 </StackPanel>
             </Grid>
@@ -154,7 +154,7 @@
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16">
                 <StackPanel Spacing="14" HorizontalAlignment="Center">
-                    <ProgressRing Width="48" Height="48" IsActive="True" Foreground="#FFD0575C"/>
+                    <ProgressRing Width="48" Height="48" IsActive="True" Foreground="#FFC94F78"/>
                     <TextBlock x:Name="InitialLoadingTitle" Text="BOOTH Library Managerを読み込み中"
                                FontFamily="Segoe UI Variable Display" FontSize="20" FontWeight="SemiBold"
                                HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
@@ -277,7 +277,7 @@
                                                 <TextBlock Text="{Binding PurchasedPackType}" Foreground="{Binding PurchasedPackBadgeForegroundBrush}" FontSize="11" FontWeight="SemiBold"/>
                                             </Border>
                                             <Border HorizontalAlignment="Right" Padding="8,3" CornerRadius="10" Background="#CC555B66" Visibility="{Binding CompatibilityCountBadgeVisibility}"><TextBlock Text="{Binding CompatibleAvatarCountText}" Foreground="White" FontSize="11" FontWeight="SemiBold"/></Border>
-                                            <Border HorizontalAlignment="Right" Padding="8,3" CornerRadius="10" Background="#FFD0575C" Visibility="{Binding FileUpdateBadgeVisibility}">
+                                            <Border HorizontalAlignment="Right" Padding="8,3" CornerRadius="10" Background="#FFC94F78" Visibility="{Binding FileUpdateBadgeVisibility}">
                                                 <StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE895;" Foreground="White" FontSize="11"/><TextBlock Text="更新あり" Foreground="White" FontSize="11" FontWeight="SemiBold"/></StackPanel>
                                             </Border>
                                         </StackPanel>
@@ -339,7 +339,7 @@
             </Grid>
             <controls:HandCursorGridView x:Name="AvatarGrid" Grid.Row="1" Margin="-8,18,-20,0" ItemsSource="{x:Bind VisibleAvatarCards}" IsItemClickEnabled="True" ItemClick="AvatarGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}" SizeChanged="OverviewGrid_SizeChanged">
                 <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="0"/></ItemsPanelTemplate></GridView.ItemsPanel>
-                <GridView.ItemTemplate><DataTemplate><Border Width="{Binding CardWidth}" Height="{Binding CardHeight}" Margin="7" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel><Border Height="{Binding CardWidth}" CornerRadius="10,10,0,0" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="48" Opacity="0.2"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/><StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" Spacing="5"><Border HorizontalAlignment="Right" Padding="9,4" CornerRadius="11" Background="#FFD0575C" Visibility="{Binding UnpurchasedBadgeVisibility}"><TextBlock Text="未購入" Foreground="White" FontSize="11" FontWeight="SemiBold"/></Border><Border HorizontalAlignment="Right" Padding="9,4" CornerRadius="11" Background="#FFD0575C" Visibility="{Binding FileUpdateBadgeVisibility}"><StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE895;" Foreground="White" FontSize="11"/><TextBlock Text="更新あり" Foreground="White" FontSize="11" FontWeight="SemiBold"/></StackPanel></Border></StackPanel></Grid></Border><StackPanel Padding="11,8" Spacing="3"><TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ShopName}" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis"/></StackPanel></StackPanel></Border></DataTemplate></GridView.ItemTemplate>
+                <GridView.ItemTemplate><DataTemplate><Border Width="{Binding CardWidth}" Height="{Binding CardHeight}" Margin="7" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel><Border Height="{Binding CardWidth}" CornerRadius="10,10,0,0" Background="{ThemeResource SubtleFillColorSecondaryBrush}"><Grid><FontIcon Glyph="&#xE77B;" FontSize="48" Opacity="0.2"/><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/><StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" Spacing="5"><Border HorizontalAlignment="Right" Padding="9,4" CornerRadius="11" Background="#FFC94F78" Visibility="{Binding UnpurchasedBadgeVisibility}"><TextBlock Text="未購入" Foreground="White" FontSize="11" FontWeight="SemiBold"/></Border><Border HorizontalAlignment="Right" Padding="9,4" CornerRadius="11" Background="#FFC94F78" Visibility="{Binding FileUpdateBadgeVisibility}"><StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE895;" Foreground="White" FontSize="11"/><TextBlock Text="更新あり" Foreground="White" FontSize="11" FontWeight="SemiBold"/></StackPanel></Border></StackPanel></Grid></Border><StackPanel Padding="11,8" Spacing="3"><TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ShopName}" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis"/></StackPanel></StackPanel></Border></DataTemplate></GridView.ItemTemplate>
             </controls:HandCursorGridView>
         </Grid>
 
@@ -367,7 +367,7 @@
             </Grid>
             <controls:HandCursorGridView x:Name="BoothTagGrid" Grid.Row="1" Margin="-8,18,-20,0" ItemsSource="{x:Bind VisibleBoothTags}" IsItemClickEnabled="True" ItemClick="BoothTagGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}" SizeChanged="OverviewGrid_SizeChanged">
                 <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
-                <GridView.ItemTemplate><DataTemplate><Border Width="{Binding CardWidth}" Height="68" Margin="7" Padding="14,10" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><FontIcon Glyph="&#xE8EC;" Foreground="#FFD0575C" FontSize="16"/><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/></StackPanel><Border Grid.Column="1" Padding="9,4" CornerRadius="11" Background="#1FD0575C" VerticalAlignment="Center"><TextBlock Text="{Binding CountText}" Foreground="#FFD0575C" FontSize="11" FontWeight="SemiBold"/></Border></Grid></Border></DataTemplate></GridView.ItemTemplate>
+                <GridView.ItemTemplate><DataTemplate><Border Width="{Binding CardWidth}" Height="68" Margin="7" Padding="14,10" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><FontIcon Glyph="&#xE8EC;" Foreground="#FFC94F78" FontSize="16"/><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/></StackPanel><Border Grid.Column="1" Padding="9,4" CornerRadius="11" Background="#1FC94F78" VerticalAlignment="Center"><TextBlock Text="{Binding CountText}" Foreground="#FFC94F78" FontSize="11" FontWeight="SemiBold"/></Border></Grid></Border></DataTemplate></GridView.ItemTemplate>
             </controls:HandCursorGridView>
         </Grid>
 
@@ -420,10 +420,10 @@
                         <TextBlock Text="BOOTH Library Managerの商品を探して整理し、Unityへ導入するまでの基本操作を説明します。" Opacity="0.72" TextWrapping="Wrap"/>
                     </StackPanel>
 
-                    <Border CornerRadius="12" Background="#16D0575C" BorderBrush="#50D0575C" BorderThickness="1" Padding="18">
+                    <Border CornerRadius="12" Background="#16C94F78" BorderBrush="#50C94F78" BorderThickness="1" Padding="18">
                         <Grid ColumnSpacing="16">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="56"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <Border Width="52" Height="52" CornerRadius="26" Background="#FFD0575C" VerticalAlignment="Top">
+                            <Border Width="52" Height="52" CornerRadius="26" Background="#FFC94F78" VerticalAlignment="Top">
                                 <FontIcon Glyph="&#xE7C5;" Foreground="White" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel Grid.Column="1" Spacing="5">
@@ -438,12 +438,12 @@
                         <TextBlock Text="基本の流れ" Style="{StaticResource SubtitleTextBlockStyle}"/>
                         <Border CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="16">
                             <StackPanel Spacing="4">
-                                <Grid ColumnSpacing="14"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="22" Background="#FF6F4EDC"><FontIcon Glyph="&#xE77B;" Foreground="White" FontSize="21"/></Border><StackPanel Grid.Column="1" Spacing="5"><TextBlock Text="1. アバター設定を確認する" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="最初に「アバター」を開き、各アバターのメイン呼称と識別タグが正しいか確認します。識別タグは商品説明・BOOTHタグ・ダウンロードした商品名と照合され、対応アバターを判定する基準になります。" TextWrapping="Wrap" Opacity="0.75"/><Border Background="#16D0575C" BorderBrush="#50D0575C" BorderThickness="1" CornerRadius="7" Padding="10,7"><StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE7BA;" Foreground="#FFD0575C" FontSize="15" VerticalAlignment="Top"/><TextBlock Text="アバターではない商品がアバター一覧にある場合は、そのカードの「アイテム情報編集」から衣装・髪型・テクスチャなど正しい分類へ変更してください。" FontSize="12" TextWrapping="Wrap"/></StackPanel></Border></StackPanel></Grid>
-                                <FontIcon Glyph="&#xE70D;" FontSize="16" Foreground="#FFD0575C" Margin="14,3,0,3" HorizontalAlignment="Left"/>
-                                <Grid ColumnSpacing="14"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="22" Background="#FFD0575C"><FontIcon Glyph="&#xE721;" Foreground="White" FontSize="21"/></Border><StackPanel Grid.Column="1" Spacing="3"><TextBlock Text="2. 商品を探す" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="「改変アイテム」で商品名やタグを検索します。分類タブ、対応アバター、ショップ、BOOTHタグ、更新状態も組み合わせて絞り込めます。" TextWrapping="Wrap" Opacity="0.75"/></StackPanel></Grid>
-                                <FontIcon Glyph="&#xE70D;" FontSize="16" Foreground="#FFD0575C" Margin="14,3,0,3" HorizontalAlignment="Left"/>
+                                <Grid ColumnSpacing="14"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="22" Background="#FF6F4EDC"><FontIcon Glyph="&#xE77B;" Foreground="White" FontSize="21"/></Border><StackPanel Grid.Column="1" Spacing="5"><TextBlock Text="1. アバター設定を確認する" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="最初に「アバター」を開き、各アバターのメイン呼称と識別タグが正しいか確認します。識別タグは商品説明・BOOTHタグ・ダウンロードした商品名と照合され、対応アバターを判定する基準になります。" TextWrapping="Wrap" Opacity="0.75"/><Border Background="#16C94F78" BorderBrush="#50C94F78" BorderThickness="1" CornerRadius="7" Padding="10,7"><StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE7BA;" Foreground="#FFC94F78" FontSize="15" VerticalAlignment="Top"/><TextBlock Text="アバターではない商品がアバター一覧にある場合は、そのカードの「アイテム情報編集」から衣装・髪型・テクスチャなど正しい分類へ変更してください。" FontSize="12" TextWrapping="Wrap"/></StackPanel></Border></StackPanel></Grid>
+                                <FontIcon Glyph="&#xE70D;" FontSize="16" Foreground="#FFC94F78" Margin="14,3,0,3" HorizontalAlignment="Left"/>
+                                <Grid ColumnSpacing="14"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="22" Background="#FFC94F78"><FontIcon Glyph="&#xE721;" Foreground="White" FontSize="21"/></Border><StackPanel Grid.Column="1" Spacing="3"><TextBlock Text="2. 商品を探す" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="「改変アイテム」で商品名やタグを検索します。分類タブ、対応アバター、ショップ、BOOTHタグ、更新状態も組み合わせて絞り込めます。" TextWrapping="Wrap" Opacity="0.75"/></StackPanel></Grid>
+                                <FontIcon Glyph="&#xE70D;" FontSize="16" Foreground="#FFC94F78" Margin="14,3,0,3" HorizontalAlignment="Left"/>
                                 <Grid ColumnSpacing="14"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="22" Background="#FF66717D"><FontIcon Glyph="&#xE8A7;" Foreground="White" FontSize="21"/></Border><StackPanel Grid.Column="1" Spacing="3"><TextBlock Text="3. 詳細を確認する" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="カードをクリックすると右側に詳細が開きます。商品ページ、対応アバター、BOOTHタグ、ダウンロードファイル、UnityPackageを確認できます。" TextWrapping="Wrap" Opacity="0.75"/></StackPanel></Grid>
-                                <FontIcon Glyph="&#xE70D;" FontSize="16" Foreground="#FFD0575C" Margin="14,3,0,3" HorizontalAlignment="Left"/>
+                                <FontIcon Glyph="&#xE70D;" FontSize="16" Foreground="#FFC94F78" Margin="14,3,0,3" HorizontalAlignment="Left"/>
                                 <Grid ColumnSpacing="14"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="22" Background="#FF4D8C72"><FontIcon Glyph="&#xE74C;" Foreground="White" FontSize="21"/></Border><StackPanel Grid.Column="1" Spacing="9"><TextBlock Text="4. Unityへインポートする" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="先に導入先のUnityプロジェクトを開き、詳細のUnityPackageをクリックします。Unityに確認画面が出たら内容を確認して「Import」を選びます。" TextWrapping="Wrap" Opacity="0.75"/><Border CornerRadius="9" Padding="12" Background="#123B82F6" BorderBrush="#453B82F6" BorderThickness="1"><StackPanel Spacing="9"><Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><FontIcon Glyph="&#xE946;" Foreground="#FF3979D0" FontSize="18"/><TextBlock Grid.Column="1" Text="通常は分類ごとに Assets/衣装、Assets/テクスチャなどへ配置します。配置先は「Unityインポート先」で変更できます。" TextWrapping="Wrap"/></Grid><Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><FontIcon Glyph="&#xE7BA;" Foreground="#FF3979D0" FontSize="18"/><TextBlock Grid.Column="1" Text="一部の商品はAssets直下を前提にしています。導入後に動作しない場合は、その分類を「Assets直下」にして再度お試しください。" TextWrapping="Wrap"/></Grid><Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><FontIcon Glyph="&#xE823;" Foreground="#FF3979D0" FontSize="18"/><TextBlock Grid.Column="1" Text="大きなUnityPackageは準備に時間がかかります。右下の進捗表示が完了するまでお待ちください。" TextWrapping="Wrap"/></Grid></StackPanel></Border></StackPanel></Grid>
                             </StackPanel>
                         </Border>
@@ -457,7 +457,7 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="820" HorizontalAlignment="Left" Spacing="18" Padding="0,0,12,28">
                     <StackPanel Spacing="5"><TextBlock Text="変更履歴" Style="{StaticResource TitleTextBlockStyle}"/><TextBlock Text="主な機能追加と改善内容を簡潔に掲載しています。" Opacity="0.72" TextWrapping="Wrap"/></StackPanel>
-                    <Border CornerRadius="10" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Spacing="8"><TextBlock Text="最新版" Foreground="#FFD0575C" FontWeight="SemiBold"/><TextBlock Text="• 人気アバターの既定識別タグを拡充&#x0a;• ダウンロードファイルの階層表示、画像プレビュー、旧バージョン判定を改善&#x0a;• 一覧検索、表示設定、詳細パネルの操作性を改善" TextWrapping="Wrap" LineHeight="23"/></StackPanel></Border>
+                    <Border CornerRadius="10" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Spacing="8"><TextBlock Text="最新版" Foreground="#FFC94F78" FontWeight="SemiBold"/><TextBlock Text="• 人気アバターの既定識別タグを拡充&#x0a;• ダウンロードファイルの階層表示、画像プレビュー、旧バージョン判定を改善&#x0a;• 一覧検索、表示設定、詳細パネルの操作性を改善" TextWrapping="Wrap" LineHeight="23"/></StackPanel></Border>
                     <Border CornerRadius="10" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Spacing="8"><TextBlock Text="これまでの主な更新" FontWeight="SemiBold"/><TextBlock Text="• アバター・改変アイテム・ショップ・BOOTHタグの管理画面を追加&#x0a;• UnityPackageの安全な展開と分類別インポートに対応&#x0a;• 未購入アバター、共通素体、対応アバター手動設定に対応&#x0a;• 初回ガイド、プライバシー・権限説明、処理通知を追加" TextWrapping="Wrap" LineHeight="23"/></StackPanel></Border>
                     <TextBlock Text="詳細な更新情報は、配布元のリリース案内をご確認ください。" FontSize="12" Opacity="0.65" TextWrapping="Wrap"/>
                 </StackPanel>
@@ -479,7 +479,7 @@
                     <StackPanel Spacing="6"><TextBlock Text="Unity操作に必要な権限" Style="{StaticResource SubtitleTextBlockStyle}"/><TextBlock Text="ユーザーがUnityインポートを選んだときだけ、起動中のUnity Editorを検出し、そのプロジェクト場所を確認します。UnityプロジェクトのPackagesに本アプリ専用の公開された連携スクリプトを配置し、Libraryに一時的なインポート要求を作成します。UnityPackageはリンク、絶対パス、パストラバーサル、特殊項目、過大な項目数・展開容量を拒否してから処理します。" TextWrapping="Wrap" Opacity="0.78"/></StackPanel>
                     <StackPanel Spacing="6"><TextBlock Text="保存・変更・削除" Style="{StaticResource SubtitleTextBlockStyle}"/><TextBlock Text="分類やアバター設定は %LOCALAPPDATA%\VrcKaihenLibrary\library.db に保存します。再配置したUnityPackageはBLMライブラリ直下の .VrcKaihenLibraryImportCache に通常のフォルダーとして保存します。重複ダウンロード整理は対象を表示して確認を得た場合だけ実行し、古いフォルダーはごみ箱へ移します。アンインストールしても設定DB、キャッシュ、Unityプロジェクト内の連携ファイルは自動削除しません。" TextWrapping="Wrap" Opacity="0.78"/></StackPanel>
                     <StackPanel Spacing="6"><TextBlock Text="非公式ツールについて" Style="{StaticResource SubtitleTextBlockStyle}"/><TextBlock Text="本アプリはBOOTHおよびBOOTH Library Managerの運営元が提供・保証する公式製品ではなく、提携関係もありません。商品ファイルとUnityプロジェクトのバックアップを推奨します。安全性の問題を見つけた場合は配布元のGitHubリポジトリへ報告してください。" TextWrapping="Wrap" Opacity="0.78"/></StackPanel>
-                    <Button Click="RevokeDataAccessConsent_Click" HorizontalAlignment="Left" Foreground="#FFD0575C">
+                    <Button Click="RevokeDataAccessConsent_Click" HorizontalAlignment="Left" Foreground="#FFC94F78">
                         <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE72E;"/><TextBlock Text="PC内の商品情報参照への同意を取り消す"/></StackPanel>
                     </Button>
                     <TextBlock Text="安全性に配慮して設計・検査していますが、すべての環境や第三者製UnityPackageの完全な安全性を保証するものではありません。" FontSize="12" Opacity="0.62" TextWrapping="Wrap"/>
@@ -525,7 +525,7 @@
                       PointerCanceled="DetailPanelResizeGrip_PointerCanceled"
                       PointerCaptureLost="DetailPanelResizeGrip_PointerCaptureLost"
                       ToolTipService.ToolTip="ドラッグして詳細パネルの幅を変更">
-                    <Border Width="3" Height="52" CornerRadius="1.5" Background="#77D0575C" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border Width="3" Height="52" CornerRadius="1.5" Background="#77C94F78" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </controls:HorizontalResizeCursorGrid>
             <Grid x:Name="DetailPanelContent" Grid.Column="1" HorizontalAlignment="Stretch" Padding="24,18,24,24" RowSpacing="16">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -612,7 +612,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <TextBlock x:Name="DetailPlacement" Visibility="Collapsed"/>
-                        <Border x:Name="DetailUpdateNotice" Visibility="Collapsed" Margin="0,6,0,0" Padding="12,9" CornerRadius="7" Background="#FFD0575C">
+                        <Border x:Name="DetailUpdateNotice" Visibility="Collapsed" Margin="0,6,0,0" Padding="12,9" CornerRadius="7" Background="#FFC94F78">
                             <Grid ColumnSpacing="9"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><FontIcon Glyph="&#xE895;" Foreground="White" FontSize="16" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="BOOTH Library Managerにて未読の更新通知があります" Foreground="White" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/></Grid>
                         </Border>
                         <Border x:Name="DetailDownloadsSection" Margin="0,6,0,0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
@@ -854,7 +854,7 @@
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                                        <Border Visibility="{Binding NewVersionBadgeVisibility}" Background="#FFD0575C" CornerRadius="10" Padding="7,2"><TextBlock Text="新バージョンあり" Foreground="White" FontSize="9"/></Border>
+                                        <Border Visibility="{Binding NewVersionBadgeVisibility}" Background="#FFC94F78" CornerRadius="10" Padding="7,2"><TextBlock Text="新バージョンあり" Foreground="White" FontSize="9"/></Border>
                                         <Border Visibility="{Binding DuplicateBadgeVisibility}" Background="#FFB85C5C" CornerRadius="10" Padding="7,2"><TextBlock Text="同一名のファイルがあります" Foreground="White" FontSize="9"/></Border>
                                     </StackPanel>
                                 </Grid>

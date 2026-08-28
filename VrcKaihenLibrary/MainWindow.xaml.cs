@@ -267,7 +267,8 @@ public sealed partial class MainWindow : Window
     private sealed record ImportSettingEditor(string Category, TextBox FolderBox, CheckBox RootCheckBox);
     private const uint GwHwndNext = 2;
     private const string AllCategories = "すべて";
-    private static readonly Windows.UI.Color BoothAccentColor = Windows.UI.Color.FromArgb(255, 208, 87, 92);
+    // BOOTH-inspired magenta, matched to the current app icon.
+    private static readonly Windows.UI.Color BoothAccentColor = Windows.UI.Color.FromArgb(255, 201, 79, 120);
     private readonly BoothLibraryReader _reader = new();
     private readonly UserMetadataStore _metadataStore = new();
     private readonly DuplicateDownloadService _duplicateDownloadService = new();
