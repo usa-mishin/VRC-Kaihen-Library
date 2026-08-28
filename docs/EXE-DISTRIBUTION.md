@@ -54,3 +54,7 @@ GitHubのリポジトリで「Releases」→「Draft a new release」を開き�
 ## 将来コード署名する場合
 
 信頼されたコード署名証明書を取得した後は、セットアップEXEに署名できます。配布先での証明書登録は不要になり、発行元表示とSmartScreen評価の面で有利になります。秘密鍵やPFXはGitへコミットしないでください。
+
+## SignPath Foundation申請用の再現ビルド
+
+公開リポジトリには `.github/workflows/build-installer.yml` を配置し、`v1.0.72.0` のような4区切りタグ、またはActionsの手動実行からWindowsランナーでセットアップEXEとSHA-256ファイルを生成します。署名サービスへ申請する際は [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md) と、GitHub Actionsの成功履歴・既存Releaseを提示します。署名リクエストはリリース担当者が手動承認し、署名秘密鍵はリポジトリへ保存しません。

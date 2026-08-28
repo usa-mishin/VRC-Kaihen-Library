@@ -74,6 +74,10 @@ winget install --id JRSoftware.InnoSetup -e
 
 生成物は `artifacts/installer` に保存されます。更新時は同じインストーラーをより大きな版番号で生成し、既存環境で実行すると上書き更新されます。詳細は [docs/EXE-DISTRIBUTION.md](docs/EXE-DISTRIBUTION.md) を参照してください。
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). リリース用インストーラーはGitHub Actionsでタグのソースから再現ビルドし、署名リクエストを手動承認します。詳細は [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) を参照してください。
+
 ## 開発を再開する方へ
 
 公開前に個人情報・秘密情報・ローカル設定を確認する場合は、[オープンソース公開前チェック](docs/OPEN-SOURCE-CHECKLIST.md) も参照してください。
