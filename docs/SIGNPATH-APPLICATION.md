@@ -4,7 +4,7 @@ Use this draft when applying for the free SignPath.io subscription. Do not inclu
 
 ## Project
 
-- Project name: VRC改変ライブラリ（BLM拡張）
+- Project name: VRC改変ライブラリ（BOOTH Library Manager拡張）
 - Repository: https://github.com/usa-mishin/VRC-Kaihen-Library
 - License: MIT
 - Release: https://github.com/usa-mishin/VRC-Kaihen-Library/releases/tag/v1.0.72.0
@@ -15,7 +15,7 @@ Use this draft when applying for the free SignPath.io subscription. Do not inclu
 
 ## Description
 
-VRC改変ライブラリ（BLM拡張）は、ユーザーが自分のPCで使用しているBOOTH Library Managerの商品情報を、明示的な同意後に読み取り専用で整理し、VRChat向け改変アイテムをUnityへ導入するWindowsデスクトップアプリです。広告、テレメトリー、独自サーバーへのデータ送信はありません。ユーザーが選んだUnityインポートや重複整理以外に、商品ファイルやUnityプロジェクトを変更しません。
+VRC改変ライブラリ（BOOTH Library Manager拡張）は、ユーザーが自分のPCで使用しているBOOTH Library Managerの商品情報を、明示的な同意後に読み取り専用で整理し、VRChat向け改変アイテムをUnityへ導入するWindowsデスクトップアプリです。広告、テレメトリー、独自サーバーへのデータ送信はありません。ユーザーが選んだUnityインポートや重複整理以外に、商品ファイルやUnityプロジェクトを変更しません。
 
 ## Maintainer and roles
 

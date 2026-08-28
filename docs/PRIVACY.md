@@ -2,7 +2,7 @@
 
 最終更新日: 2026-08-28
 
-VRC改変ライブラリ（BLM拡張）は、BOOTH Library ManagerがPC内に保存した情報をローカルで整理する非公式デスクトップアプリです。BOOTHおよびBOOTH Library Managerの運営元との提携関係はありません。
+VRC改変ライブラリ（BOOTH Library Manager拡張）は、BOOTH Library ManagerがPC内に保存した情報をローカルで整理する非公式デスクトップアプリです。BOOTHおよびBOOTH Library Managerの運営元との提携関係はありません。
 
 インストーラーまたはアプリ初回起動時に、以下のローカルデータ参照について説明し、ユーザーが明示的に同意した後だけ、BOOTH Library ManagerがPC内に保存した商品情報を読み取ります。同意しない場合、その商品情報へアクセスせずアプリを終了します。同意した事実と説明の版番号だけをPC内へ保存します。
 
