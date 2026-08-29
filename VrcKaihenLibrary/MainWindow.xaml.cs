@@ -3071,7 +3071,11 @@ public sealed partial class MainWindow : Window
         }
         // Queue transient notifications while another transient notification is visible.
         // Progress notifications remain replaceable so long-running operations can update in place.
-        if (OperationPopup.Visibility == Visibility.Visible && _operationPopupAutoDismiss)
+        // Keep an already completed notification in place while another operation
+        // starts. A visible progress card, however, is the active process card and
+        // is updated in place by its completion notification.
+        if (OperationPopup.Visibility == Visibility.Visible
+            && (_operationPopupAutoDismiss || OperationPopupProgress.Visibility != Visibility.Visible))
         {
             var additional = AddAdditionalOperationPopup(kind, title, message, autoDismiss || kind == OperationPopupKind.Progress);
             if (kind == OperationPopupKind.Progress) _releaseCheckPopup = additional;
