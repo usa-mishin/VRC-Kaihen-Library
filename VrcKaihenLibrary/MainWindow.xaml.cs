@@ -383,7 +383,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         await LoadLibraryAsync();
-        await CheckForLatestReleaseAsync();
+        await CheckForLatestReleaseAsync(showProgress: false, showCurrent: false);
     }
 
     private Task WaitForRootLayoutLoadedAsync()
@@ -2457,11 +2457,11 @@ public sealed partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(GitHubReleasesUrl) { UseShellExecute = true });
     }
 
-    private async Task CheckForLatestReleaseAsync()
+    private async Task CheckForLatestReleaseAsync(bool showProgress = true, bool showCurrent = true)
     {
         if (_updateCheckInProgress) return;
         _updateCheckInProgress = true;
-        ShowOperationPopup(OperationPopupKind.Progress, "リリースを確認中", "GitHubの公開リリースを確認しています…");
+        if (showProgress) ShowOperationPopup(OperationPopupKind.Progress, "リリースを確認中", "GitHubの公開リリースを確認しています…");
         try
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
@@ -2480,12 +2480,12 @@ public sealed partial class MainWindow : Window
             else
             {
                 LatestVersionBadge.Visibility = Visibility.Collapsed;
-                ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: true);
+                if (showCurrent) ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: true);
             }
         }
         catch
         {
-            ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: true);
+            if (showCurrent) ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: true);
         }
         finally
         {
