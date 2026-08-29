@@ -3060,6 +3060,10 @@ public sealed partial class MainWindow : Window
     private void ShowOperationPopup(OperationPopupKind kind, string title, string message, double? progress = null, bool autoDismiss = false)
     {
         if (_isClosing) return;
+        // Release-check results are transient when opened from the version page or
+        // at startup; the result must not remain pinned indefinitely.
+        if (_updateCheckInProgress && kind != OperationPopupKind.Progress)
+            autoDismiss = true;
         // A process notification is updated in place when it completes, rather than
         // removing the progress card and briefly showing a second card.
         if (_releaseCheckPopup is not null && kind != OperationPopupKind.Progress
