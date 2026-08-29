@@ -393,6 +393,7 @@
                                 <x:String>小</x:String><x:String>中（既定）</x:String><x:String>大</x:String>
                             </ComboBox>
                             <TextBlock Text="アバター一覧と改変アイテム一覧に表示するカードの大きさを変更します。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                            <Border Height="1" Margin="0,7" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
                             <ToggleSwitch x:Name="HideR18ItemsToggle" Header="R18アイテムを非表示" IsOn="False" Toggled="HideR18ItemsToggle_Toggled"/>
                             <TextBlock Text="BOOTHの年齢制限がR18のアイテムを一覧から非表示にします。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
                         </StackPanel>
