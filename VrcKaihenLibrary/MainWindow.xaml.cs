@@ -3082,7 +3082,7 @@ public sealed partial class MainWindow : Window
         {
             Width = 430, MinHeight = 96, Background = new SolidColorBrush(Windows.UI.Color.FromArgb(250, 37, 39, 45)),
             BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(56, 255, 255, 255)), BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(16), Opacity = 0
+            CornerRadius = new CornerRadius(16), Opacity = 1
         };
         var grid = new Grid { ColumnSpacing = 12, Padding = new Thickness(0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6) });
