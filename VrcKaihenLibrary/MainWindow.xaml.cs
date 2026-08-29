@@ -338,6 +338,7 @@ public sealed partial class MainWindow : Window
     private string _cardSizePreset = "Medium";
     private bool _isApplyingCardSizeSetting = true;
     private bool _hideR18Items;
+    private bool _isApplyingR18Setting = true;
     private bool _updateCheckInProgress;
     private bool _isResizingDetailPanel;
     private double _detailResizeStartX;
@@ -576,7 +577,9 @@ public sealed partial class MainWindow : Window
             var savedImportSettings = await Task.Run(_metadataStore.ReadCategoryImportSettings);
             var smartTitleShorteningEnabled = await Task.Run(_metadataStore.ReadSmartTitleShorteningEnabled);
             _hideR18Items = await Task.Run(_metadataStore.ReadHideR18Items);
+            _isApplyingR18Setting = true;
             HideR18ItemsToggle.IsOn = _hideR18Items;
+            _isApplyingR18Setting = false;
             SmartTitleShorteningToggle.IsOn = smartTitleShorteningEnabled;
             foreach (var item in _allItems) item.SetSmartTitleShorteningEnabled(smartTitleShorteningEnabled);
             _categoryImportSettings = AssetCategories.All.ToDictionary(
@@ -736,7 +739,7 @@ public sealed partial class MainWindow : Window
 
     private async void HideR18ItemsToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        if (HideR18ItemsToggle is null) return;
+        if (_isApplyingR18Setting || HideR18ItemsToggle is null) return;
         _hideR18Items = HideR18ItemsToggle.IsOn;
         await Task.Run(() => _metadataStore.SaveHideR18Items(_hideR18Items));
         _currentPage = 1;

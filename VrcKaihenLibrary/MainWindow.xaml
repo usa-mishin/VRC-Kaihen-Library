@@ -256,7 +256,7 @@
                 </controls:HandCursorButton.Flyout>
             </controls:HandCursorButton>
             <Button x:Name="RefreshLibraryButton" Grid.Column="2" Click="Refresh_Click" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="データ再取得"/></StackPanel>
             </Button>
             <Border x:Name="CategorySelectionLine" Grid.Row="1" Grid.ColumnSpan="3" Height="3" CornerRadius="1.5" HorizontalAlignment="Stretch"/>
         </Grid>
@@ -337,7 +337,7 @@
                     <controls:HandCursorButton.Flyout><MenuFlyout Placement="BottomEdgeAlignedRight"><MenuFlyoutItem Text="商品名（昇順）" Tag="0" Click="AvatarSortMenuItem_Click"/><MenuFlyoutItem Text="商品名（降順）" Tag="1" Click="AvatarSortMenuItem_Click"/><MenuFlyoutItem Text="ショップ名（昇順）" Tag="2" Click="AvatarSortMenuItem_Click"/><MenuFlyoutItem Text="ショップ名（降順）" Tag="3" Click="AvatarSortMenuItem_Click"/><MenuFlyoutItem Text="登録日時（新しい順）" Tag="4" Click="AvatarSortMenuItem_Click"/><MenuFlyoutItem Text="登録日時（古い順）" Tag="5" Click="AvatarSortMenuItem_Click"/><MenuFlyoutItem Text="更新日時（新しい順）" Tag="6" Click="AvatarSortMenuItem_Click"/><MenuFlyoutItem Text="更新日時（古い順）" Tag="7" Click="AvatarSortMenuItem_Click"/></MenuFlyout></controls:HandCursorButton.Flyout>
                 </controls:HandCursorButton>
                 <Button Grid.Row="1" Grid.Column="4" Click="Refresh_Click" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="データ再取得"/></StackPanel>
                 </Button>
             </Grid>
             <controls:HandCursorGridView x:Name="AvatarGrid" Grid.Row="1" Margin="-8,18,-20,0" ItemsSource="{x:Bind VisibleAvatarCards}" IsItemClickEnabled="True" ItemClick="AvatarGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}" SizeChanged="OverviewGrid_SizeChanged">
@@ -352,7 +352,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><StackPanel Grid.ColumnSpan="2" Spacing="3"><TextBlock Text="ショップ" Style="{StaticResource TitleTextBlockStyle}"/><TextBlock Text="ダウンロード済アイテムのショップ一覧です。ショップをクリックすると改変アイテムをショップで絞り込んで表示します。" Opacity="0.7" TextWrapping="Wrap"/></StackPanel>
                 <AutoSuggestBox x:Name="ShopPageSearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="ショップ名を検索" QueryIcon="Find" TextChanged="ShopPageSearchBox_TextChanged" VerticalAlignment="Center"/>
-                <Button Grid.Row="1" Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Center" HorizontalAlignment="Right"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel></Button>
+                <Button Grid.Row="1" Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Center" HorizontalAlignment="Right"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="データ再取得"/></StackPanel></Button>
             </Grid>
             <controls:HandCursorGridView x:Name="ShopGrid" Grid.Row="1" Margin="-8,18,-20,0" ItemsSource="{x:Bind VisibleShopCards}" IsItemClickEnabled="True" ItemClick="ShopGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}" SizeChanged="OverviewGrid_SizeChanged">
                 <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
@@ -366,7 +366,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><StackPanel Grid.ColumnSpan="2" Spacing="3"><TextBlock Text="BOOTHタグ" Style="{StaticResource TitleTextBlockStyle}"/><TextBlock Text="全改変アイテムに設定されているBOOTHタグと該当商品件数の一覧です。BOOTHタグをクリックすると改変アイテムをBOOTHタグで絞り込んで表示します。" Opacity="0.7" TextWrapping="Wrap"/></StackPanel>
                 <AutoSuggestBox x:Name="BoothTagSearchBox" Grid.Row="1" Grid.Column="0" PlaceholderText="タグ名を検索" QueryIcon="Find" TextChanged="BoothTagSearchBox_TextChanged" VerticalAlignment="Center"/>
-                <Button Grid.Row="1" Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Center" HorizontalAlignment="Right"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="全データ再取得"/></StackPanel></Button>
+                <Button Grid.Row="1" Grid.Column="2" Click="Refresh_Click" VerticalAlignment="Center" HorizontalAlignment="Right"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE72C;"/><TextBlock Text="データ再取得"/></StackPanel></Button>
             </Grid>
             <controls:HandCursorGridView x:Name="BoothTagGrid" Grid.Row="1" Margin="-8,18,-20,0" ItemsSource="{x:Bind VisibleBoothTags}" IsItemClickEnabled="True" ItemClick="BoothTagGrid_ItemClick" SelectionMode="None" ItemContainerStyle="{StaticResource CompactGridViewItemStyle}" SizeChanged="OverviewGrid_SizeChanged">
                 <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal"/></ItemsPanelTemplate></GridView.ItemsPanel>
@@ -393,10 +393,10 @@
                                 <x:String>小</x:String><x:String>中（既定）</x:String><x:String>大</x:String>
                             </ComboBox>
                             <TextBlock Text="アバター一覧と改変アイテム一覧に表示するカードの大きさを変更します。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                            <ToggleSwitch x:Name="HideR18ItemsToggle" Header="R18アイテムを非表示" IsOn="False" Toggled="HideR18ItemsToggle_Toggled"/>
+                            <TextBlock Text="BOOTHの年齢制限がR18のアイテムを一覧から非表示にします。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
-                    <ToggleSwitch x:Name="HideR18ItemsToggle" Header="R18アイテムを非表示" IsOn="False" Toggled="HideR18ItemsToggle_Toggled"/>
-                    <TextBlock Text="商品名・タグ・説明にR18等の表記があるアイテムを一覧から非表示にします。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
