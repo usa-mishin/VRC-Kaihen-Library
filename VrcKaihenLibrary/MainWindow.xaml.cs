@@ -383,7 +383,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         await LoadLibraryAsync();
-        _ = CheckForLatestReleaseAsync();
+        await CheckForLatestReleaseAsync();
     }
 
     private Task WaitForRootLayoutLoadedAsync()
@@ -3042,7 +3042,7 @@ public sealed partial class MainWindow : Window
         // Progress notifications remain replaceable so long-running operations can update in place.
         if (OperationPopup.Visibility == Visibility.Visible && _operationPopupAutoDismiss && kind != OperationPopupKind.Progress)
         {
-            _operationPopupQueue.Enqueue((kind, title, message, progress, autoDismiss));
+            AddAdditionalOperationPopup(kind, title, message, autoDismiss);
             return;
         }
         var version = ++_operationPopupVersion;
@@ -3068,6 +3068,48 @@ public sealed partial class MainWindow : Window
         OperationPopup.Visibility = Visibility.Visible;
         AnimateOperationPopup(show: true);
         if (autoDismiss) _ = AutoDismissOperationPopupAsync(version);
+    }
+
+    private void AddAdditionalOperationPopup(OperationPopupKind kind, string title, string message, bool autoDismiss)
+    {
+        var (glyph, accent, pale) = kind switch
+        {
+            OperationPopupKind.Success => ("\uE73E", Windows.UI.Color.FromArgb(255, 32, 155, 96), Windows.UI.Color.FromArgb(24, 32, 155, 96)),
+            OperationPopupKind.Error => ("\uEA39", Windows.UI.Color.FromArgb(255, 208, 67, 74), Windows.UI.Color.FromArgb(28, 208, 67, 74)),
+            _ => ("\uE946", Windows.UI.Color.FromArgb(255, 47, 126, 213), Windows.UI.Color.FromArgb(24, 47, 126, 213))
+        };
+        var toast = new Border
+        {
+            Width = 430, MinHeight = 96, Background = new SolidColorBrush(Windows.UI.Color.FromArgb(250, 37, 39, 45)),
+            BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(56, 255, 255, 255)), BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(16), Opacity = 0
+        };
+        var grid = new Grid { ColumnSpacing = 12, Padding = new Thickness(0) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(new Border { Background = new SolidColorBrush(accent), CornerRadius = new CornerRadius(16, 0, 0, 16) });
+        var iconBackground = new Border { Width = 48, Height = 48, Margin = new Thickness(14, 14, 0, 14), CornerRadius = new CornerRadius(24), Background = new SolidColorBrush(pale) };
+        iconBackground.Child = new FontIcon { Glyph = glyph, FontSize = 26, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(iconBackground, 1); grid.Children.Add(iconBackground);
+        var text = new StackPanel { Margin = new Thickness(0, 14, 0, 14), Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock { Text = title, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        text.Children.Add(new TextBlock { Text = message, Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(230, 255, 255, 255)), FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxLines = 3 });
+        Grid.SetColumn(text, 2); grid.Children.Add(text);
+        var close = new Button { Content = "×", Width = 32, Height = 32, Margin = new Thickness(0, 8, 8, 0), Padding = new Thickness(0), Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Top };
+        close.Click += (_, _) => OperationPopupAdditionalStack.Children.Remove(toast);
+        Grid.SetColumn(close, 3); grid.Children.Add(close);
+        toast.Child = grid;
+        OperationPopupAdditionalStack.Children.Insert(0, toast);
+        _ = RemoveAdditionalOperationPopupAsync(toast, autoDismiss);
+    }
+
+    private async Task RemoveAdditionalOperationPopupAsync(Border toast, bool autoDismiss)
+    {
+        if (!autoDismiss) return;
+        await Task.Delay(TimeSpan.FromSeconds(5));
+        if (!_isClosing && OperationPopupAdditionalStack.Children.Contains(toast)) OperationPopupAdditionalStack.Children.Remove(toast);
     }
 
     private void UpdateOperationPopupProgress(double progress, string message)

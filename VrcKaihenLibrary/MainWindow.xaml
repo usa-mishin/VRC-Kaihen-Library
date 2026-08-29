@@ -813,6 +813,8 @@
             </Grid>
         </Border>
 
+        <StackPanel x:Name="OperationPopupAdditionalStack" Grid.RowSpan="4" Grid.ColumnSpan="3" Width="430" Margin="24,24,24,150" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Canvas.ZIndex="1001" IsHitTestVisible="True"/>
+
         <Border x:Name="OperationPopup" Grid.RowSpan="4" Grid.ColumnSpan="3"
                 Width="430" MinHeight="112" Margin="24" Padding="0"
                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
