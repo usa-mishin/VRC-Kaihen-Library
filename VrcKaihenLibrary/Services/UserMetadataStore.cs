@@ -237,6 +237,28 @@ public sealed class UserMetadataStore
         command.ExecuteNonQuery();
     }
 
+    public bool ReadHideR18Items()
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT value FROM application_settings WHERE key='hide_r18_items'";
+        return string.Equals(command.ExecuteScalar() as string, "1", StringComparison.Ordinal);
+    }
+
+    public void SaveHideR18Items(bool hide)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO application_settings(key, value, updated_at)
+            VALUES('hide_r18_items', $value, $updated)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+            """;
+        command.Parameters.AddWithValue("$value", hide ? "1" : "0");
+        command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
     public bool CompleteFirstLaunchAndShouldShowHelp()
     {
         using var connection = Open();

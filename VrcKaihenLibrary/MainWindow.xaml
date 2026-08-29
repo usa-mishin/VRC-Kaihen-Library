@@ -406,6 +406,8 @@
                     <TextBlock Text="分類ごとのAssets配下のフォルダ名と、Assets直下へ配置するかを設定します。アバターは常にAssets直下へ配置されます。一部商品はAssets直下にインポートすることを想定されている可能性がありますので、インポートした商品が正常に動作しない場合はAssets直下にインポートするように設定してください。またUnityパッケージのファイルサイズが大きい場合はAssets直下に配置しない場合、インポート準備に時間かかる可能性があります。" Opacity="0.7" TextWrapping="Wrap"/>
                     <StackPanel Spacing="8">
                         <StackPanel x:Name="ImportSettingsRows" Spacing="10"/>
+                        <ToggleSwitch x:Name="HideR18ItemsToggle" Header="R18アイテムを非表示" IsOn="False" Toggled="HideR18ItemsToggle_Toggled"/>
+                        <TextBlock Text="商品名・タグ・説明にR18等の表記があるアイテムを一覧から非表示にします。" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
                         <TextBlock x:Name="ImportSettingsStatus" FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
                         <controls:HandCursorButton Click="SaveImportSettings_Click" HorizontalAlignment="Left" Margin="0,2,0,0">
                             <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE74E;"/><TextBlock Text="設定を保存"/></StackPanel>

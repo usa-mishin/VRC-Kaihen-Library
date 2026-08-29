@@ -337,6 +337,7 @@ public sealed partial class MainWindow : Window
     private bool _isApplyingDetailPanelSizeSetting = true;
     private string _cardSizePreset = "Medium";
     private bool _isApplyingCardSizeSetting = true;
+    private bool _hideR18Items;
     private bool _updateCheckInProgress;
     private bool _isResizingDetailPanel;
     private double _detailResizeStartX;
@@ -373,6 +374,7 @@ public sealed partial class MainWindow : Window
         _cardSizePreset = _metadataStore.ReadCardSizePreset();
         CardSizeBox.SelectedIndex = _cardSizePreset switch { "Small" => 0, "Large" => 2, _ => 1 };
         _isApplyingCardSizeSetting = false;
+        _hideR18Items = _metadataStore.ReadHideR18Items();
         var windowIconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
         if (File.Exists(windowIconPath)) AppWindow.SetIcon(windowIconPath);
         PageSizeBox.SelectedItem = 50;
@@ -570,6 +572,8 @@ public sealed partial class MainWindow : Window
             var metadata = await Task.Run(_metadataStore.ReadAll);
             var savedImportSettings = await Task.Run(_metadataStore.ReadCategoryImportSettings);
             var smartTitleShorteningEnabled = await Task.Run(_metadataStore.ReadSmartTitleShorteningEnabled);
+            _hideR18Items = await Task.Run(_metadataStore.ReadHideR18Items);
+            HideR18ItemsToggle.IsOn = _hideR18Items;
             SmartTitleShorteningToggle.IsOn = smartTitleShorteningEnabled;
             foreach (var item in _allItems) item.SetSmartTitleShorteningEnabled(smartTitleShorteningEnabled);
             _categoryImportSettings = AssetCategories.All.ToDictionary(
@@ -725,6 +729,17 @@ public sealed partial class MainWindow : Window
         await Task.Run(() => _metadataStore.SaveCardSizePreset(_cardSizePreset));
         ShowOperationPopup(OperationPopupKind.Success, "表示設定を変更しました",
             $"アバター・アイテムカードのサイズを「{CardSizeBox.SelectedItem}」に変更しました。", autoDismiss: true);
+    }
+
+    private async void HideR18ItemsToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (HideR18ItemsToggle is null) return;
+        _hideR18Items = HideR18ItemsToggle.IsOn;
+        await Task.Run(() => _metadataStore.SaveHideR18Items(_hideR18Items));
+        _currentPage = 1;
+        if (_allItems.Count > 0) ApplyFilter();
+        ShowOperationPopup(OperationPopupKind.Success, "表示設定を変更しました",
+            _hideR18Items ? "R18アイテムを非表示にしました。" : "R18アイテムを表示する設定に戻しました。", autoDismiss: true);
     }
 
     private void PopulateCategories()
@@ -916,6 +931,7 @@ public sealed partial class MainWindow : Window
         if (ItemsGrid.ActualWidth > 0) UpdateItemCardWidths(ItemsGrid.ActualWidth);
         var query = SearchBox.Text?.Trim() ?? string.Empty;
         var filtered = _allItems.Where(item => item.Category != AssetCategories.Avatar &&
+            (!_hideR18Items || !IsR18Item(item)) &&
             (string.IsNullOrEmpty(query) || Contains(item.Name, query) || Contains(item.ShopName, query) || Contains(item.Tags, query)) &&
             (_selectedCategory == AllCategories || item.Category == _selectedCategory) &&
             (_selectedShopFilter is null || item.ShopName.Equals(_selectedShopFilter, StringComparison.CurrentCultureIgnoreCase)) &&
@@ -942,6 +958,16 @@ public sealed partial class MainWindow : Window
     }
 
     private static bool Contains(string value, string query) => value.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+    private static bool IsR18Item(LibraryItem item)
+    {
+        var text = $"{item.Name} {item.Tags} {item.Description}";
+        return text.Contains("R-18", StringComparison.CurrentCultureIgnoreCase)
+            || text.Contains("R18", StringComparison.CurrentCultureIgnoreCase)
+            || text.Contains("18禁", StringComparison.CurrentCultureIgnoreCase)
+            || text.Contains("成人向け", StringComparison.CurrentCultureIgnoreCase)
+            || text.Contains("アダルト", StringComparison.CurrentCultureIgnoreCase)
+            || text.Contains("NSFW", StringComparison.CurrentCultureIgnoreCase);
+    }
     private static bool IsCompatibilityCategory(string category) =>
         category is "衣装" or "髪型" or "アクセサリー" or "テクスチャ" or "マテリアル" or "ギミック" or "アニメーション";
     private bool MatchesAvatarFilter(LibraryItem item)
@@ -3315,7 +3341,12 @@ public sealed partial class MainWindow : Window
                 item.CompatibleAvatarCount = 0;
                 continue;
             }
-            var ids = GetEffectiveCompatibilityMatches(item).Select(x => x.AvatarRegistrationId).ToHashSet();
+            // Count only direct compatibility. Shared-body-only matches remain
+            // available for filtering/detail display, but should not inflate the badge.
+            var ids = GetEffectiveCompatibilityMatches(item)
+                .Where(x => !x.ThroughBaseBody)
+                .Select(x => x.AvatarRegistrationId)
+                .ToHashSet();
             _compatibilityFilterCache[item.RegistrationId] = ids;
             item.CompatibleAvatarCount = ids.Count;
         }
