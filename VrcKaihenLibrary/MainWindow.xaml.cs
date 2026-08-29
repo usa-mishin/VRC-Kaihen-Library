@@ -2462,6 +2462,7 @@ public sealed partial class MainWindow : Window
     {
         if (_updateCheckInProgress) return;
         _updateCheckInProgress = true;
+        var checkStartedAt = DateTime.UtcNow;
         if (showProgress) ShowOperationPopup(OperationPopupKind.Progress, "リリースを確認中", "GitHubの公開リリースを確認しています…");
         try
         {
@@ -2473,6 +2474,7 @@ public sealed partial class MainWindow : Window
             var tag = root.TryGetProperty("tag_name", out var tagProperty) ? tagProperty.GetString() : null;
             var latestText = tag?.Trim().TrimStart('v', 'V');
             var currentText = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
+            await KeepReleaseCheckVisibleAsync(checkStartedAt, showProgress);
             if (Version.TryParse(latestText, out var latest) && Version.TryParse(currentText, out var current) && latest > current)
             {
                 RemoveReleaseCheckPopup();
@@ -2488,6 +2490,7 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
+            await KeepReleaseCheckVisibleAsync(checkStartedAt, showProgress);
             RemoveReleaseCheckPopup();
             if (showCurrent) ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: true);
         }
@@ -2495,6 +2498,13 @@ public sealed partial class MainWindow : Window
         {
             _updateCheckInProgress = false;
         }
+    }
+
+    private static async Task KeepReleaseCheckVisibleAsync(DateTime startedAt, bool showProgress)
+    {
+        if (!showProgress) return;
+        var remaining = TimeSpan.FromMilliseconds(800) - (DateTime.UtcNow - startedAt);
+        if (remaining > TimeSpan.Zero) await Task.Delay(remaining);
     }
 
     private void PopulateImportSettings()
