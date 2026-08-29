@@ -153,10 +153,44 @@ public sealed class BoothLibraryReader
                 ShopThumbnailUrl = BoothNetworkPolicy.FilterImageSource(
                     reader.IsDBNull(17) ? null : reader.GetString(17))
             });
+            result[^1].IsAgeRestricted = IsAgeRestricted(connection, result[^1].BoothItemId);
         }
         return result;
     }
 
     private static DateTimeOffset? ReadDate(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) || !DateTimeOffset.TryParse(reader.GetString(ordinal), out var value) ? null : value;
+
+    private static bool IsAgeRestricted(SqliteConnection connection, long? boothItemId)
+    {
+        if (boothItemId is null) return false;
+        // BLM schema versions use different names for the BOOTH age gate.
+        // Inspect the read-only schema and use only that field; never infer R18
+        // from names, descriptions, or tags.
+        var candidates = new List<string>();
+        using (var schema = connection.CreateCommand())
+        {
+            schema.CommandText = "PRAGMA table_info(booth_items)";
+            using var rows = schema.ExecuteReader();
+            while (rows.Read())
+            {
+                var name = rows.GetString(1);
+                var normalized = name.Replace("_", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+                if (normalized.Contains("adult") || normalized.Contains("r18") || normalized.Contains("agerestrict"))
+                    candidates.Add(name);
+            }
+        }
+        foreach (var column in candidates)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = $"SELECT [{column.Replace("]", "]]", StringComparison.Ordinal)}] FROM booth_items WHERE id=$id";
+            command.Parameters.AddWithValue("$id", boothItemId.Value);
+            var value = command.ExecuteScalar();
+            if (value is bool flag && flag) return true;
+            if (value is long number && number != 0) return true;
+            if (value is int integer && integer != 0) return true;
+            if (value is string text && (text == "1" || text.Equals("true", StringComparison.OrdinalIgnoreCase))) return true;
+        }
+        return false;
+    }
 }

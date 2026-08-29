@@ -959,15 +959,7 @@ public sealed partial class MainWindow : Window
 
     private static bool Contains(string value, string query) => value.Contains(query, StringComparison.CurrentCultureIgnoreCase);
     private static bool IsR18Item(LibraryItem item)
-    {
-        var text = $"{item.Name} {item.Tags} {item.Description}";
-        return text.Contains("R-18", StringComparison.CurrentCultureIgnoreCase)
-            || text.Contains("R18", StringComparison.CurrentCultureIgnoreCase)
-            || text.Contains("18禁", StringComparison.CurrentCultureIgnoreCase)
-            || text.Contains("成人向け", StringComparison.CurrentCultureIgnoreCase)
-            || text.Contains("アダルト", StringComparison.CurrentCultureIgnoreCase)
-            || text.Contains("NSFW", StringComparison.CurrentCultureIgnoreCase);
-    }
+        => item.IsAgeRestricted;
     private static bool IsCompatibilityCategory(string category) =>
         category is "衣装" or "髪型" or "アクセサリー" or "テクスチャ" or "マテリアル" or "ギミック" or "アニメーション";
     private bool MatchesAvatarFilter(LibraryItem item)
