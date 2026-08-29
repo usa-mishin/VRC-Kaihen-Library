@@ -3130,8 +3130,8 @@ public sealed partial class MainWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.Children.Add(new Border { Background = new SolidColorBrush(accent), CornerRadius = new CornerRadius(16, 0, 0, 16) });
-        var iconBackground = new Border { Width = 48, Height = 48, Margin = new Thickness(14, 14, 0, 14), CornerRadius = new CornerRadius(24), Background = new SolidColorBrush(pale) };
-        var icon = new FontIcon { Glyph = glyph, FontSize = 26, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var iconBackground = new Border { Width = 56, Height = 56, Margin = new Thickness(16, 16, 0, 16), CornerRadius = new CornerRadius(28), Background = new SolidColorBrush(pale) };
+        var icon = new FontIcon { Glyph = glyph, FontSize = 30, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         iconBackground.Child = icon;
         Grid.SetColumn(iconBackground, 1); grid.Children.Add(iconBackground);
         var text = new StackPanel { Margin = new Thickness(0, 14, 0, 14), Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
