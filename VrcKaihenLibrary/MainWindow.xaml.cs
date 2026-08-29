@@ -3118,7 +3118,7 @@ public sealed partial class MainWindow : Window
         {
             Width = 430, MinHeight = 96, Background = new SolidColorBrush(Windows.UI.Color.FromArgb(250, 37, 39, 45)),
             BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(56, 255, 255, 255)), BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(16), Opacity = 0
+            CornerRadius = new CornerRadius(16), Opacity = 1
         };
         var grid = new Grid { ColumnSpacing = 12, Padding = new Thickness(0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6) });
@@ -3141,8 +3141,11 @@ public sealed partial class MainWindow : Window
         Grid.SetColumn(close, 3); grid.Children.Add(close);
         toast.Child = grid;
         toast.Tag = new OperationToastState { Icon = icon, IconBackground = iconBackground, Accent = (Border)grid.Children[0], Title = titleText, Message = messageText };
-        toast.Loaded += (_, _) => AnimateAdditionalOperationPopup(toast, show: true);
         OperationPopupAdditionalStack.Children.Insert(0, toast);
+        // The element may be inserted into an already-loaded window, so do not
+        // depend on Loaded to make it visible. Start the entrance animation after
+        // layout has accepted the toast, while keeping it visible immediately.
+        DispatcherQueue.TryEnqueue(() => AnimateAdditionalOperationPopup(toast, show: true));
         _ = RemoveAdditionalOperationPopupAsync(toast, autoDismiss);
         return toast;
     }
