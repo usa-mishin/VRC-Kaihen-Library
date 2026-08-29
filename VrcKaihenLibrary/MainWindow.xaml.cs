@@ -313,6 +313,7 @@ public sealed partial class MainWindow : Window
     private bool _isApplyingSmartTitleSetting = true;
     private int _operationPopupVersion;
     private bool _operationPopupAutoDismiss;
+    private Border? _releaseCheckPopup;
     private readonly Queue<(OperationPopupKind Kind, string Title, string Message, double? Progress, bool AutoDismiss)> _operationPopupQueue = new();
     private bool _isLibraryLoading;
     private bool _hasCompletedInitialLoad;
@@ -2474,17 +2475,20 @@ public sealed partial class MainWindow : Window
             var currentText = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
             if (Version.TryParse(latestText, out var latest) && Version.TryParse(currentText, out var current) && latest > current)
             {
+                RemoveReleaseCheckPopup();
                 LatestVersionBadge.Visibility = Visibility.Visible;
                 ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "バージョン情報ページのGitHub Releasesリンクから最新版をダウンロードできます。", autoDismiss: true);
             }
             else
             {
+                RemoveReleaseCheckPopup();
                 LatestVersionBadge.Visibility = Visibility.Collapsed;
                 if (showCurrent) ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: true);
             }
         }
         catch
         {
+            RemoveReleaseCheckPopup();
             if (showCurrent) ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: true);
         }
         finally
@@ -3042,7 +3046,8 @@ public sealed partial class MainWindow : Window
         // Progress notifications remain replaceable so long-running operations can update in place.
         if (OperationPopup.Visibility == Visibility.Visible && _operationPopupAutoDismiss)
         {
-            AddAdditionalOperationPopup(kind, title, message, autoDismiss || kind == OperationPopupKind.Progress);
+            var additional = AddAdditionalOperationPopup(kind, title, message, autoDismiss || kind == OperationPopupKind.Progress);
+            if (kind == OperationPopupKind.Progress) _releaseCheckPopup = additional;
             return;
         }
         var version = ++_operationPopupVersion;
@@ -3070,7 +3075,7 @@ public sealed partial class MainWindow : Window
         if (autoDismiss) _ = AutoDismissOperationPopupAsync(version);
     }
 
-    private void AddAdditionalOperationPopup(OperationPopupKind kind, string title, string message, bool autoDismiss)
+    private Border AddAdditionalOperationPopup(OperationPopupKind kind, string title, string message, bool autoDismiss)
     {
         var (glyph, accent, pale) = kind switch
         {
@@ -3082,7 +3087,7 @@ public sealed partial class MainWindow : Window
         {
             Width = 430, MinHeight = 96, Background = new SolidColorBrush(Windows.UI.Color.FromArgb(250, 37, 39, 45)),
             BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(56, 255, 255, 255)), BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(16), Opacity = 1
+            CornerRadius = new CornerRadius(16), Opacity = 0
         };
         var grid = new Grid { ColumnSpacing = 12, Padding = new Thickness(0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6) });
@@ -3101,15 +3106,48 @@ public sealed partial class MainWindow : Window
         close.Click += (_, _) => OperationPopupAdditionalStack.Children.Remove(toast);
         Grid.SetColumn(close, 3); grid.Children.Add(close);
         toast.Child = grid;
+        toast.Loaded += (_, _) => AnimateAdditionalOperationPopup(toast, show: true);
         OperationPopupAdditionalStack.Children.Insert(0, toast);
         _ = RemoveAdditionalOperationPopupAsync(toast, autoDismiss);
+        return toast;
+    }
+
+    private void RemoveReleaseCheckPopup()
+    {
+        if (_releaseCheckPopup is not null)
+            OperationPopupAdditionalStack.Children.Remove(_releaseCheckPopup);
+        _releaseCheckPopup = null;
     }
 
     private async Task RemoveAdditionalOperationPopupAsync(Border toast, bool autoDismiss)
     {
         if (!autoDismiss) return;
         await Task.Delay(TimeSpan.FromSeconds(5));
-        if (!_isClosing && OperationPopupAdditionalStack.Children.Contains(toast)) OperationPopupAdditionalStack.Children.Remove(toast);
+        if (!_isClosing && OperationPopupAdditionalStack.Children.Contains(toast))
+        {
+            AnimateAdditionalOperationPopup(toast, show: false);
+            await Task.Delay(260);
+            if (!_isClosing) OperationPopupAdditionalStack.Children.Remove(toast);
+        }
+    }
+
+    private static void AnimateAdditionalOperationPopup(Border toast, bool show)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(toast);
+        var compositor = visual.Compositor;
+        ElementCompositionPreview.SetIsTranslationEnabled(toast, true);
+        var offset = show ? 0 : 48;
+        var opacity = show ? 1 : 0;
+        var translation = compositor.CreateVector3KeyFrameAnimation();
+        translation.InsertKeyFrame(0, new Vector3(show ? 48 : 0, 0, 0));
+        translation.InsertKeyFrame(1, new Vector3(offset, 0, 0));
+        translation.Duration = TimeSpan.FromMilliseconds(260);
+        var fade = compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0, show ? 0 : 1);
+        fade.InsertKeyFrame(1, opacity);
+        fade.Duration = TimeSpan.FromMilliseconds(220);
+        visual.StartAnimation("Translation", translation);
+        visual.StartAnimation("Opacity", fade);
     }
 
     private void UpdateOperationPopupProgress(double progress, string message)
