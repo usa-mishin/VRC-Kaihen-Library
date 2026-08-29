@@ -2479,20 +2479,22 @@ public sealed partial class MainWindow : Window
             {
                 RemoveReleaseCheckPopup();
                 LatestVersionBadge.Visibility = Visibility.Visible;
-                ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "バージョン情報ページのGitHub Releasesリンクから最新版をダウンロードできます。", autoDismiss: true);
+                // Version update results should remain readable until the user dismisses them.
+                // They are especially easy to miss when the startup sync notification is also visible.
+                ShowOperationPopup(OperationPopupKind.Information, $"新しいバージョン v{latestText} があります", "バージョン情報ページのGitHub Releasesリンクから最新版をダウンロードできます。", autoDismiss: false);
             }
             else
             {
                 RemoveReleaseCheckPopup();
                 LatestVersionBadge.Visibility = Visibility.Collapsed;
-                if (showCurrent) ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: true);
+                if (showCurrent) ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: false);
             }
         }
         catch
         {
             await KeepReleaseCheckVisibleAsync(checkStartedAt, showProgress);
             RemoveReleaseCheckPopup();
-            if (showCurrent) ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: true);
+            if (showCurrent) ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: false);
         }
         finally
         {
