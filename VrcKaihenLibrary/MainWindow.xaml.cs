@@ -265,6 +265,15 @@ public sealed partial class MainWindow : Window
 {
     private enum AppPage { Avatar, Library, Shop, BoothTags, ImportSettings, Settings, Help, Changelog, Privacy }
     private enum OperationPopupKind { Progress, Success, Information, Error }
+
+    private sealed class OperationToastState
+    {
+        public required FontIcon Icon { get; init; }
+        public required Border IconBackground { get; init; }
+        public required Border Accent { get; init; }
+        public required TextBlock Title { get; init; }
+        public required TextBlock Message { get; init; }
+    }
     private sealed record UnityEditorTarget(int ProcessId, IntPtr WindowHandle);
     private sealed record ImportSettingEditor(string Category, TextBox FolderBox, CheckBox RootCheckBox);
     private const uint GwHwndNext = 2;
@@ -2477,7 +2486,6 @@ public sealed partial class MainWindow : Window
             await KeepReleaseCheckVisibleAsync(checkStartedAt, showProgress);
             if (Version.TryParse(latestText, out var latest) && Version.TryParse(currentText, out var current) && latest > current)
             {
-                RemoveReleaseCheckPopup();
                 LatestVersionBadge.Visibility = Visibility.Visible;
                 // Version update results should remain readable until the user dismisses them.
                 // They are especially easy to miss when the startup sync notification is also visible.
@@ -2485,7 +2493,6 @@ public sealed partial class MainWindow : Window
             }
             else
             {
-                RemoveReleaseCheckPopup();
                 LatestVersionBadge.Visibility = Visibility.Collapsed;
                 if (showCurrent) ShowOperationPopup(OperationPopupKind.Success, "最新バージョンです", $"現在のバージョン v{currentText} を使用しています。", autoDismiss: false);
             }
@@ -2493,7 +2500,6 @@ public sealed partial class MainWindow : Window
         catch
         {
             await KeepReleaseCheckVisibleAsync(checkStartedAt, showProgress);
-            RemoveReleaseCheckPopup();
             if (showCurrent) ShowOperationPopup(OperationPopupKind.Information, "リリースを確認できませんでした", "ネットワーク接続を確認して、バージョン情報ページから再試行してください。", autoDismiss: false);
         }
         finally
@@ -3054,6 +3060,15 @@ public sealed partial class MainWindow : Window
     private void ShowOperationPopup(OperationPopupKind kind, string title, string message, double? progress = null, bool autoDismiss = false)
     {
         if (_isClosing) return;
+        // A process notification is updated in place when it completes, rather than
+        // removing the progress card and briefly showing a second card.
+        if (_releaseCheckPopup is not null && kind != OperationPopupKind.Progress
+            && OperationPopupAdditionalStack.Children.Contains(_releaseCheckPopup))
+        {
+            UpdateOrShowReleaseCheckPopup(kind, title, message, autoDismiss);
+            _releaseCheckPopup = null;
+            return;
+        }
         // Queue transient notifications while another transient notification is visible.
         // Progress notifications remain replaceable so long-running operations can update in place.
         if (OperationPopup.Visibility == Visibility.Visible && _operationPopupAutoDismiss)
@@ -3108,20 +3123,48 @@ public sealed partial class MainWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.Children.Add(new Border { Background = new SolidColorBrush(accent), CornerRadius = new CornerRadius(16, 0, 0, 16) });
         var iconBackground = new Border { Width = 48, Height = 48, Margin = new Thickness(14, 14, 0, 14), CornerRadius = new CornerRadius(24), Background = new SolidColorBrush(pale) };
-        iconBackground.Child = new FontIcon { Glyph = glyph, FontSize = 26, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var icon = new FontIcon { Glyph = glyph, FontSize = 26, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        iconBackground.Child = icon;
         Grid.SetColumn(iconBackground, 1); grid.Children.Add(iconBackground);
         var text = new StackPanel { Margin = new Thickness(0, 14, 0, 14), Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(new TextBlock { Text = title, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        text.Children.Add(new TextBlock { Text = message, Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(230, 255, 255, 255)), FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxLines = 3 });
+        var titleText = new TextBlock { Text = title, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+        var messageText = new TextBlock { Text = message, Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(230, 255, 255, 255)), FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxLines = 3 };
+        text.Children.Add(titleText);
+        text.Children.Add(messageText);
         Grid.SetColumn(text, 2); grid.Children.Add(text);
         var close = new Button { Content = "×", Width = 32, Height = 32, Margin = new Thickness(0, 8, 8, 0), Padding = new Thickness(0), Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Top };
         close.Click += (_, _) => OperationPopupAdditionalStack.Children.Remove(toast);
         Grid.SetColumn(close, 3); grid.Children.Add(close);
         toast.Child = grid;
+        toast.Tag = new OperationToastState { Icon = icon, IconBackground = iconBackground, Accent = (Border)grid.Children[0], Title = titleText, Message = messageText };
         toast.Loaded += (_, _) => AnimateAdditionalOperationPopup(toast, show: true);
         OperationPopupAdditionalStack.Children.Insert(0, toast);
         _ = RemoveAdditionalOperationPopupAsync(toast, autoDismiss);
         return toast;
+    }
+
+    private void UpdateOrShowReleaseCheckPopup(OperationPopupKind kind, string title, string message, bool autoDismiss)
+    {
+        if (_releaseCheckPopup is not null && OperationPopupAdditionalStack.Children.Contains(_releaseCheckPopup)
+            && _releaseCheckPopup.Tag is OperationToastState state)
+        {
+            var (glyph, accent, pale) = kind switch
+            {
+                OperationPopupKind.Success => ("\uE73E", Windows.UI.Color.FromArgb(255, 32, 155, 96), Windows.UI.Color.FromArgb(24, 32, 155, 96)),
+                OperationPopupKind.Error => ("\uEA39", Windows.UI.Color.FromArgb(255, 208, 67, 74), Windows.UI.Color.FromArgb(28, 208, 67, 74)),
+                _ => ("\uE946", Windows.UI.Color.FromArgb(255, 47, 126, 213), Windows.UI.Color.FromArgb(24, 47, 126, 213))
+            };
+            state.Icon.Glyph = glyph;
+            state.Icon.Foreground = new SolidColorBrush(accent);
+            state.IconBackground.Background = new SolidColorBrush(pale);
+            state.Accent.Background = new SolidColorBrush(accent);
+            state.Title.Text = title;
+            state.Message.Text = message;
+            _ = RemoveAdditionalOperationPopupAsync(_releaseCheckPopup, autoDismiss);
+            return;
+        }
+
+        ShowOperationPopup(kind, title, message, autoDismiss: autoDismiss);
     }
 
     private void RemoveReleaseCheckPopup()
