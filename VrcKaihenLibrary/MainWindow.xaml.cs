@@ -383,7 +383,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         await LoadLibraryAsync();
-        await CheckForLatestReleaseAsync(showProgress: false, showCurrent: false);
+        await CheckForLatestReleaseAsync(showProgress: true, showCurrent: true);
     }
 
     private Task WaitForRootLayoutLoadedAsync()
@@ -3040,9 +3040,9 @@ public sealed partial class MainWindow : Window
         if (_isClosing) return;
         // Queue transient notifications while another transient notification is visible.
         // Progress notifications remain replaceable so long-running operations can update in place.
-        if (OperationPopup.Visibility == Visibility.Visible && _operationPopupAutoDismiss && kind != OperationPopupKind.Progress)
+        if (OperationPopup.Visibility == Visibility.Visible && _operationPopupAutoDismiss)
         {
-            AddAdditionalOperationPopup(kind, title, message, autoDismiss);
+            AddAdditionalOperationPopup(kind, title, message, autoDismiss || kind == OperationPopupKind.Progress);
             return;
         }
         var version = ++_operationPopupVersion;
