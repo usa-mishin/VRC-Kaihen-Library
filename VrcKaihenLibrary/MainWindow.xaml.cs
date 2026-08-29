@@ -312,6 +312,8 @@ public sealed partial class MainWindow : Window
     private readonly List<ImportSettingEditor> _importSettingEditors = [];
     private bool _isApplyingSmartTitleSetting = true;
     private int _operationPopupVersion;
+    private bool _operationPopupAutoDismiss;
+    private readonly Queue<(OperationPopupKind Kind, string Title, string Message, double? Progress, bool AutoDismiss)> _operationPopupQueue = new();
     private bool _isLibraryLoading;
     private bool _hasCompletedInitialLoad;
     private const double MinimumDetailPanelWidth = 300d;
@@ -2464,7 +2466,8 @@ public sealed partial class MainWindow : Window
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("VrcKaihenLibrary");
-            using var document = JsonDocument.Parse(await client.GetStringAsync(GitHubLatestReleaseApiUrl));
+            var response = await client.GetStringAsync(GitHubLatestReleaseApiUrl).WaitAsync(TimeSpan.FromSeconds(8));
+            using var document = JsonDocument.Parse(response);
             var root = document.RootElement;
             var tag = root.TryGetProperty("tag_name", out var tagProperty) ? tagProperty.GetString() : null;
             var latestText = tag?.Trim().TrimStart('v', 'V');
@@ -3035,7 +3038,15 @@ public sealed partial class MainWindow : Window
     private void ShowOperationPopup(OperationPopupKind kind, string title, string message, double? progress = null, bool autoDismiss = false)
     {
         if (_isClosing) return;
+        // Queue transient notifications while another transient notification is visible.
+        // Progress notifications remain replaceable so long-running operations can update in place.
+        if (OperationPopup.Visibility == Visibility.Visible && _operationPopupAutoDismiss && kind != OperationPopupKind.Progress)
+        {
+            _operationPopupQueue.Enqueue((kind, title, message, progress, autoDismiss));
+            return;
+        }
         var version = ++_operationPopupVersion;
+        _operationPopupAutoDismiss = autoDismiss;
         var (glyph, accent, pale) = kind switch
         {
             OperationPopupKind.Success => ("\uE73E", Windows.UI.Color.FromArgb(255, 32, 155, 96), Windows.UI.Color.FromArgb(24, 32, 155, 96)),
@@ -3078,6 +3089,11 @@ public sealed partial class MainWindow : Window
         AnimateOperationPopup(show: false);
         await Task.Delay(300);
         if (!_isClosing && version == _operationPopupVersion) OperationPopup.Visibility = Visibility.Collapsed;
+        if (!_isClosing && _operationPopupQueue.Count > 0)
+        {
+            var next = _operationPopupQueue.Dequeue();
+            ShowOperationPopup(next.Kind, next.Title, next.Message, next.Progress, next.AutoDismiss);
+        }
     }
 
     private void AnimateOperationPopup(bool show)
