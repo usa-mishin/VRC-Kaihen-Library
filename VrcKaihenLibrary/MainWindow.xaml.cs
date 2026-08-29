@@ -364,6 +364,8 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        FileUpdateOnlySwitch.Visibility = Visibility.Collapsed;
+        CompactFileUpdateOnlySwitch.Visibility = Visibility.Collapsed;
         AppVersionText.Text = $"v{typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "1.0.0.0"}";
         var savedDetailPanelWidth = _metadataStore.ReadDetailPanelWidth();
         if (savedDetailPanelWidth is >= MinimumDetailPanelWidth and <= MaximumDetailPanelWidth)
@@ -379,6 +381,7 @@ public sealed partial class MainWindow : Window
         if (File.Exists(windowIconPath)) AppWindow.SetIcon(windowIconPath);
         PageSizeBox.SelectedItem = 50;
         InitializeSortMenu();
+        InitializeAvatarSortFlyout();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 800));
         AppWindow.Closing += (_, _) => _isClosing = true;
         Closed += (_, _) => _isClosing = true;
@@ -937,7 +940,6 @@ public sealed partial class MainWindow : Window
             (_selectedShopFilter is null || item.ShopName.Equals(_selectedShopFilter, StringComparison.CurrentCultureIgnoreCase)) &&
             (_selectedBoothTag is null || item.Tags.Split(" / ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Contains(_selectedBoothTag, StringComparer.CurrentCultureIgnoreCase)) &&
             (_selectedPurchasedPackType is null || item.PurchasedPackType == _selectedPurchasedPackType) &&
-            (!_showFileUpdatesOnly || item.HasFileUpdate) &&
             MatchesAvatarFilter(item)).ToList();
         filtered = SortItems(filtered).ToList();
 
@@ -1036,6 +1038,40 @@ public sealed partial class MainWindow : Window
         if (sender is not MenuFlyoutItem { Tag: string tag } || !int.TryParse(tag, out var index)) return;
         _avatarSortIndex = index;
         AvatarSortButtonText.Text = ((MenuFlyoutItem)sender).Text;
+        if (_avatarProfiles.Count > 0) PopulateAvatarCards();
+    }
+
+    private void InitializeAvatarSortFlyout()
+    {
+        var labels = new[] { "商品名（昇順）", "商品名（降順）", "ショップ名（昇順）", "ショップ名（降順）", "登録日時（新しい順）", "登録日時（古い順）", "更新日時（新しい順）", "更新日時（古い順）" };
+        var grid = new Grid { Width = 460, ColumnSpacing = 2, RowSpacing = 0 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        for (var i = 0; i < labels.Length; i++)
+        {
+            var content = new Grid { ColumnSpacing = 8 };
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            content.Children.Add(new FontIcon { Glyph = "\uE73E", FontSize = 12, Foreground = new SolidColorBrush(BoothAccentColor), Visibility = Visibility.Collapsed });
+            var text = new TextBlock { Text = labels[i], FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(text, 1); content.Children.Add(text);
+            var button = new Controls.HandCursorButton { Tag = i.ToString(), Content = content, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0), CornerRadius = new CornerRadius(4), Padding = new Thickness(8, 9, 8, 9), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+            button.Click += AvatarSortOption_Click;
+            Grid.SetColumn(button, i % 2); Grid.SetRow(button, i / 2); grid.Children.Add(button);
+        }
+        AvatarSortButton.Flyout = new Flyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight, Content = grid };
+    }
+
+    private void AvatarSortOption_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string tag } || !int.TryParse(tag, out var index)) return;
+        _avatarSortIndex = index;
+        AvatarSortButtonText.Text = index switch
+        {
+            0 => "商品名（昇順）", 1 => "商品名（降順）", 2 => "ショップ名（昇順）", 3 => "ショップ名（降順）",
+            5 => "登録日時（古い順）", 6 => "更新日時（新しい順）", 7 => "更新日時（古い順）", _ => "登録日時（新しい順）"
+        };
+        ((Flyout)AvatarSortButton.Flyout).Hide();
         if (_avatarProfiles.Count > 0) PopulateAvatarCards();
     }
 
@@ -3113,7 +3149,8 @@ public sealed partial class MainWindow : Window
             _ => ("\uE895", Windows.UI.Color.FromArgb(255, 91, 105, 166), Windows.UI.Color.FromArgb(24, 91, 105, 166))
         };
         OperationPopupIcon.Glyph = glyph;
-        OperationPopupIcon.FontSize = kind == OperationPopupKind.Error ? 34 : 30;
+        // Keep the icon glyph size consistent for every notification state.
+        OperationPopupIcon.FontSize = 30;
         OperationPopupIcon.Foreground = new SolidColorBrush(accent);
         OperationPopupIconBackground.Background = new SolidColorBrush(pale);
         OperationPopupAccent.Background = new SolidColorBrush(accent);
@@ -3148,7 +3185,7 @@ public sealed partial class MainWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.Children.Add(new Border { Background = new SolidColorBrush(accent), CornerRadius = new CornerRadius(16, 0, 0, 16) });
-        var iconBackground = new Border { Width = 56, Height = 56, Margin = new Thickness(16, 16, 0, 16), CornerRadius = new CornerRadius(28), Background = new SolidColorBrush(pale) };
+        var iconBackground = new Border { Width = 56, Height = 56, Margin = new Thickness(16, 16, 12, 16), CornerRadius = new CornerRadius(28), Background = new SolidColorBrush(pale), VerticalAlignment = VerticalAlignment.Top };
         var icon = new FontIcon { Glyph = glyph, FontSize = 30, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         iconBackground.Child = icon;
         Grid.SetColumn(iconBackground, 1); grid.Children.Add(iconBackground);
@@ -3335,12 +3372,13 @@ public sealed partial class MainWindow : Window
             }
             // Count only direct compatibility. Shared-body-only matches remain
             // available for filtering/detail display, but should not inflate the badge.
-            var ids = GetEffectiveCompatibilityMatches(item)
-                .Where(x => !x.ThroughBaseBody)
+            var matches = GetEffectiveCompatibilityMatches(item).ToList();
+            // Filtering still includes shared-body matches, while the badge
+            // count represents only direct compatibility with this avatar.
+            _compatibilityFilterCache[item.RegistrationId] = matches
                 .Select(x => x.AvatarRegistrationId)
                 .ToHashSet();
-            _compatibilityFilterCache[item.RegistrationId] = ids;
-            item.CompatibleAvatarCount = ids.Count;
+            item.CompatibleAvatarCount = matches.Count(x => !x.ThroughBaseBody);
         }
     }
 

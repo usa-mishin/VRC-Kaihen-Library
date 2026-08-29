@@ -215,7 +215,7 @@
             </Button>
             <StackPanel x:Name="QuickFilterSwitches" Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left" VerticalAlignment="Center">
                 <ToggleSwitch x:Name="FreeDownloadOnlySwitch" Toggled="FreeDownloadOnlySwitch_Toggled" OffContent="無料/ギフト" OnContent="無料/ギフト" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="FileUpdateOnlySwitch" Toggled="FileUpdateOnlySwitch_Toggled" OffContent="更新あり" OnContent="更新あり" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="FileUpdateOnlySwitch" Toggled="FileUpdateOnlySwitch_Toggled" OffContent="更新あり" OnContent="更新あり" VerticalAlignment="Center" Visibility="Collapsed"/>
                 <ToggleSwitch x:Name="ExcludeSharedBodySwitch" Toggled="ExcludeSharedBodySwitch_Toggled" OffContent="共通素体を除外" OnContent="共通素体を除外" IsEnabled="False" VerticalAlignment="Center"/>
                 <Button x:Name="ResetFiltersButton" Click="ResetFilters_Click" MinWidth="0" Padding="4,6" VerticalAlignment="Center" ToolTipService.ToolTip="フィルタをクリア" Background="Transparent" BorderThickness="0" Opacity="0.68">
                     <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE711;"/><TextBlock Text="フィルタをクリア"/></StackPanel>
